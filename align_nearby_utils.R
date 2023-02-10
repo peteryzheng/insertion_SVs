@@ -49,7 +49,7 @@ align_nearby_mc = function(ins_seq,window,insertion.sv.calls,intermediate_dir,ga
                 find_best_alignment(DNAString(ins_seq),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen),
                 find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'outside',gap_open,gap_epen),
                 find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen)))
-  },mc.cores = 8,mc.preschedule = TRUE,mc.set.seed = 55555)
+  },mc.cores = 4,mc.preschedule = TRUE,mc.set.seed = 55555)
   
   ins_alignment_scores_out_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[1]]))
   ins_alignment_scores_in_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[2]]))
