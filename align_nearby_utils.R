@@ -10,13 +10,13 @@ suppressPackageStartupMessages(library(parallel))
 find_best_alignment = function(ins_seq,window_extend,chr,start,cnt,side,gap_open,gap_epen){
   if((cnt == '+' & side == 'outside') || (cnt == '-' & side == 'inside')){
     # extension towards higher genomic position
-    end = start+nchar(ins_seq)+c(0:window_extend)
+    end = start+nchar(ins_seq)+c(0:window_extend)-1
     align_scores = unlist(lapply(end,function(x) {
       pairwiseAlignment(ins_seq,getSeq(Hsapiens,chr,start,x),type = 'global-local',scoreOnly = TRUE)
     }))
   }else if((cnt == '-' & side == 'outside') || (cnt == '+' & side == 'inside')){
     # extension towards lower genomic position
-    end = start-nchar(ins_seq)-c(0:window_extend)
+    end = start-nchar(ins_seq)-c(0:window_extend)+1
     align_scores = unlist(lapply(end,function(x) {
       pairwiseAlignment(ins_seq,getSeq(Hsapiens,chr,x,start),type = 'global-local',scoreOnly = TRUE)
     }))
