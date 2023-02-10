@@ -35,8 +35,8 @@ alignment_sig = function(alignment_df){
 
 # align nearby function with multicore process
 # given a SV call, generate alignment matricies for the SV call and their respective background
-align_nearby_mc = function(ins_seq,insertion.sv.calls,intermediate_dir,gap_open,gap_epen){
-  
+align_nearby_mc = function(ins_seq,window,insertion.sv.calls,intermediate_dir,gap_open,gap_epen){
+  window = nchar(ins_seq)*as.numeric(window)
   # out.ins.match <- in.ins.match <- out.ins.rc.match <- in.ins.rc.match <- out.mh.match <- in.mh.match <- out.mh.rc.match <- in.mh.rc.match <- 0
   
   # creating intermeadiate directories to store all alignment matricies in
@@ -114,5 +114,5 @@ if(!interactive()){
   # print(head(insertion.sv.calls))
   
   print(paste0('Aligning the insertion sequence [',ins,'] with a ',window,'X window using all breakends in file [',opt$data,'] and writing to [',intermediate_dir,']'))
-  system.time(align_nearby_mc(ins,insertion.sv.calls,intermediate_dir,7,1))
+  system.time(unlist(align_nearby_mc(ins,window,insertion.sv.calls,intermediate_dir,7,1)))
 }
