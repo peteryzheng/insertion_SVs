@@ -43,46 +43,48 @@ align_nearby_mc = function(ins_seq,window,insertion.sv.calls,intermediate_dir,ga
   intermediate_ins_dir = paste0(intermediate_dir,'/',ins_seq)
   dir.create(intermediate_ins_dir,showWarnings = TRUE)
   print(paste0('Creating ins directory for ',ins_seq,': ',intermediate_ins_dir))
-  ins_alignment_scores = mclapply(X = c(1:nrow(insertion.sv.calls)),FUN = function(x) {
-    each_call = as.character(unlist(insertion.sv.calls[x,]))
-    return(list(find_best_alignment(DNAString(ins_seq),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'outside',gap_open,gap_epen),
-                find_best_alignment(DNAString(ins_seq),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen),
-                find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'outside',gap_open,gap_epen),
-                find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen)))
-  },mc.cores = 4,mc.preschedule = TRUE,mc.set.seed = 55555)
-  
-  ins_alignment_scores_out_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[1]]))
-  ins_alignment_scores_in_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[2]]))
-  ins_alignment_scores_out_rc = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[3]]))
-  ins_alignment_scores_in_rc = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[4]]))
-
-  ins_alignment_quantile_out_og = data.table(apply(ins_alignment_scores_out_og,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_og = data.table(apply(ins_alignment_scores_in_og,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_out_rc = data.table(apply(ins_alignment_scores_out_rc,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_rc = data.table(apply(ins_alignment_scores_in_rc,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
-
-  write.table(ins_alignment_scores_out_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_og.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_scores_in_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_og.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_scores_out_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_rc.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_scores_in_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_rc.tsv'),sep = '\t',row.names = FALSE)
-  
-  write.table(ins_alignment_quantile_out_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_quantile_in_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_og.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_quantile_out_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_rc.tsv'),sep = '\t',row.names = FALSE)
-  write.table(ins_alignment_quantile_in_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_rc.tsv'),sep = '\t',row.names = FALSE)
-  
-  # ins_alignment_scores_out_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_out_og.tsv'),sep = '\t')
-  # ins_alignment_scores_in_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_in_og.tsv'))
-  # ins_alignment_scores_out_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_out_rc.tsv'))
-  # ins_alignment_scores_in_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_in_rc.tsv'))
+  # ins_alignment_scores = mclapply(X = c(1:nrow(insertion.sv.calls)),FUN = function(x) {
+  #   each_call = as.character(unlist(insertion.sv.calls[x,]))
+  #   return(list(find_best_alignment(DNAString(ins_seq),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'outside',gap_open,gap_epen),
+  #               find_best_alignment(DNAString(ins_seq),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen),
+  #               find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'outside',gap_open,gap_epen),
+  #               find_best_alignment(reverseComplement(DNAString(ins_seq)),window,paste0('chr',each_call[1]),as.numeric(each_call[2]),each_call[19],'inside',gap_open,gap_epen)))
+  # },mc.cores = 4,mc.preschedule = TRUE,mc.set.seed = 55555)
   # 
-  # out.ins.match = alignment_sig(ins_alignment_scores_out_og)
-  # in.ins.match = alignment_sig(ins_alignment_scores_in_og)
-  # out.ins.rc.match = alignment_sig(ins_alignment_scores_out_rc)
-  # in.ins.rc.match = alignment_sig(ins_alignment_scores_in_rc)
-  # c(out.ins.match,in.ins.match,out.ins.rc.match,in.ins.rc.match)
+  # ins_alignment_scores_out_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[1]]))
+  # ins_alignment_scores_in_og = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[2]]))
+  # ins_alignment_scores_out_rc = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[3]]))
+  # ins_alignment_scores_in_rc = do.call('rbind',lapply(ins_alignment_scores,function(x) x[[4]]))
   # 
-  # return(c(out.ins.match,in.ins.match,out.ins.rc.match,in.ins.rc.match,out.mh.match,in.mh.match,out.mh.rc.match,in.mh.rc.match))
+  # ins_alignment_quantile_out_og = data.table(apply(ins_alignment_scores_out_og,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
+  # ins_alignment_quantile_in_og = data.table(apply(ins_alignment_scores_in_og,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
+  # ins_alignment_quantile_out_rc = data.table(apply(ins_alignment_scores_out_rc,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
+  # ins_alignment_quantile_in_rc = data.table(apply(ins_alignment_scores_in_rc,2,function(x) rank(x)/length(x)))[,SV_ID:= insertion.sv.calls$SV_ID]
+  # 
+  # write.table(ins_alignment_scores_out_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_og.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_scores_in_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_og.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_scores_out_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_rc.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_scores_in_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_rc.tsv'),sep = '\t',row.names = FALSE)
+  # 
+  # write.table(ins_alignment_quantile_out_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_quantile_in_og,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_og.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_quantile_out_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_rc.tsv'),sep = '\t',row.names = FALSE)
+  # write.table(ins_alignment_quantile_in_rc,paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_rc.tsv'),sep = '\t',row.names = FALSE)
+  # 
+  ins_alignment_quantile_out_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t')
+  ins_alignment_quantile_in_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_og.tsv'),sep = '\t')
+  ins_alignment_quantile_out_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_rc.tsv'),sep = '\t')
+  ins_alignment_quantile_in_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_rc.tsv'),sep = '\t')
+
+  out.ins.match = alignment_sig(ins_alignment_quantile_out_og)
+  in.ins.match = alignment_sig(ins_alignment_quantile_in_og)
+  out.ins.rc.match = alignment_sig(ins_alignment_quantile_out_rc)
+  in.ins.rc.match = alignment_sig(ins_alignment_quantile_in_rc)
+
+  writeLines(out.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_og_sig_breakends.tsv'))
+  writeLines(in.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_og_sig_breakends.tsv'))
+  writeLines(out.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_rc_sig_breakends.tsv'))
+  writeLines(in.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_rc_sig_breakends.tsv'))
   
 }
 
