@@ -12,11 +12,11 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 }
 
 # PCAWG path
-# sv_files = list.files(paste0(workdir,'siyun/data/insertions/pcawg/'),
-#                       pattern = 'sv.vcf$',full.names = TRUE)
-# # DIPG
-sv_files = list.files(paste0(workdir,'Frank/DIPG/SVABAvcfs'),
+sv_files = list.files(paste0(workdir,'/siyun/data/insertions/pcawg/'),
                       pattern = 'sv.vcf$',full.names = TRUE)
+# # DIPG
+# sv_files = list.files(paste0(workdir,'Frank/DIPG/SVABAvcfs'),
+#                       pattern = 'sv.vcf$',full.names = TRUE)
 
 # rbind them into one df
 colnames9 <- c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","Sample")
@@ -75,31 +75,3 @@ colnames(insertion.sv.calls)
 
 write.table(insertion.sv.calls,paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv'),
             sep = '\t',row.names = FALSE)
-
-
-
-# run matching ----------
-# match.results = t(apply(insertion.sv.calls[1,], 1, align_nearby,max.mismatch.num = 2))
-# colnames(match.results) = c('outside_ins_match','inside_ins_match','outside_ins_rc_match','inside_ins_rc_match',
-#                             'outside_mh_match','inside_mh_match','outside_mh_rc_match','inside_mh_rc_match')
-# insertion.sv.calls = data.table(cbind(insertion.sv.calls,match.results))
-
-
-
-
-x = as.character(unlist(insertion.sv.calls[ID == '2001128:1' & Sample == '10_417-5243_pair']))
-intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
-# create intermediate directory to store all intermediate alignment results for RAM efficiency
-intermediate_dir = paste0(intermediate_dir,'/ins_align_',format(Sys.time(), "%m%d%y%H"))
-dir.create(intermediate_dir,showWarnings = TRUE)
-print(paste0('Creating SV directory: ',intermediate_dir))
-
-system.time(align_nearby(x,insertion.sv.calls,intermediate_dir,7,1))
-system.time(align_nearby_mc(x,insertion.sv.calls,intermediate_dir,7,1))
-
-# testing multithreading 
-x = as.character(unlist(insertion.sv.calls[ID == '12572961:1' & Sample == 'GBM12_pair']))
-intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
-system.time(align_nearby(x,insertion.sv.calls,intermediate_dir,7,1))
-system.time(align_nearby_mc(x,insertion.sv.calls,intermediate_dir,7,1))
-
