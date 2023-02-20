@@ -26,11 +26,20 @@ find_best_alignment = function(ins_seq,window_extend,chr,start,cnt,side,gap_open
 
 # getting significance value from a alignment score matrix
 alignment_sig = function(alignment_df){
+  # alignment_df = fread(alignment_path)
   # get the best alignment score (by quantile) for every breakend to get the adjusted p value
-  best.alignments = apply(alignment_df[,-c('SV_ID')],1,max)
-  print(summary(best.alignments))
-  adjusted.best.alignments = rank(best.alignments)/length(best.alignments)
-  return(alignment_df[which(adjusted.best.alignments > 0.95),]$SV_ID)
+  best_alignment = data.table(melt(alignment_df,id.vars = 'SV_ID',variable.name = 'j',value.name = 'quantile'))[
+    # tagging max quantile value per sv ID
+    ,.(j,quantile,max_quantile = ifelse(quantile == max(quantile),TRUE,FALSE)),by = 'SV_ID'
+  ]
+  # best quantile per SV
+  best_alignment_per_SV = unique(best_alignment[(max_quantile),.(SV_ID,quantile)])
+  print(summary(best_alignment_per_SV$quantile))
+  # adjusting max qunatile
+  best_alignment_per_SV$adjusted_quantile = rank(best_alignment_per_SV$quantile)/length(best_alignment_per_SV$quantile)
+  # adding significance info back into the total df
+  best_alignment$significance = ifelse(best_alignment$SV_ID %in% best_alignment_per_SV[adjusted_quantile > 0.95]$SV_ID,TRUE,FALSE)
+  return(best_alignment)
 }
 
 # align nearby function with multicore process
@@ -81,10 +90,10 @@ align_nearby_mc = function(ins_seq,window,insertion.sv.calls,intermediate_dir,ga
   out.ins.rc.match = alignment_sig(ins_alignment_quantile_out_rc)
   in.ins.rc.match = alignment_sig(ins_alignment_quantile_in_rc)
 
-  writeLines(out.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_og_sig_breakends.tsv'))
-  writeLines(in.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_og_sig_breakends.tsv'))
-  writeLines(out.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_rc_sig_breakends.tsv'))
-  writeLines(in.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_rc_sig_breakends.tsv'))
+  write.table(out.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_og_sig_breakends.tsv'),sep = '\t',row.names = FALSE)
+  write.table(in.ins.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_og_sig_breakends.tsv'),sep = '\t',row.names = FALSE)
+  write.table(out.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_out_rc_sig_breakends.tsv'),sep = '\t',row.names = FALSE)
+  write.table(in.ins.rc.match,paste0(intermediate_ins_dir,'/',ins_seq,'_in_rc_sig_breakends.tsv'),sep = '\t',row.names = FALSE)
   
 }
 

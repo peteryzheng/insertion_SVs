@@ -12,7 +12,10 @@ intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
 intermediate_dir = paste0(intermediate_dir,'/ins_align_total_',format(Sys.time(), "%m%d%y%H"))
 dir.create(intermediate_dir,showWarnings = TRUE)
 
+# DIPG
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_020716.tsv'))
+# PCAWG
+# insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_021614.tsv'))
 
 status_report = data.table(do.call('rbind',lapply(unique(insertion.sv.calls[ins_len <= 30 & ins_len >= 6]$ins_seq),function(x){
   if(nchar(x) > 18){
