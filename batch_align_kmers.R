@@ -10,6 +10,7 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
 intermediate_dir = paste0(intermediate_dir,'/ins_align_total_',format(Sys.time(), "%m%d%y%H"))
+# intermediate_dir = paste0(intermediate_dir,'/ins_align_total_02102315')
 dir.create(intermediate_dir,showWarnings = TRUE)
 
 # DIPG

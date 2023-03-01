@@ -10,19 +10,20 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 
 intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
-intermediate_dir = paste0(intermediate_dir,'/ins_align_total_02102315')
+intermediate_dir = paste0(intermediate_dir,'/ins_align_total_03012300')
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_020716.tsv'))
 
 match.results = t(apply(insertion.sv.calls[ins_len <= 30 & ins_len >= 6],1,function(x){
+  # x = as.character(insertion.sv.calls[ins_len <= 30 & ins_len >= 6][1,])
   ins_seq = x[which(colnames(insertion.sv.calls) == 'ins_seq')]
   SV_ID = x[which(colnames(insertion.sv.calls) == 'SV_ID')]
   intermediate_ins_dir = paste0(intermediate_dir,'/',ins_seq)
   
   # Checking if out SV_ID is in the significant match breakend list in the output in the 4 possible configurations
-  out.ins.match = ifelse(SV_ID %in% readLines(paste0(intermediate_ins_dir,'/',ins_seq,'_out_og_sig_breakends.tsv')),1,0)
-  in.ins.match = ifelse(SV_ID %in% readLines(paste0(intermediate_ins_dir,'/',ins_seq,'_in_og_sig_breakends.tsv')),1,0)
-  out.ins.rc.match = ifelse(SV_ID %in% readLines(paste0(intermediate_ins_dir,'/',ins_seq,'_out_rc_sig_breakends.tsv')),1,0)
-  in.ins.rc.match = ifelse(SV_ID %in% readLines(paste0(intermediate_ins_dir,'/',ins_seq,'_in_rc_sig_breakends.tsv')),1,0)
+  out.ins.match = ifelse(SV_ID %in% fread(paste0(intermediate_ins_dir,'/',ins_seq,'_out_og_sig_breakends.tsv'))[(significance)]$SV_ID,1,0)
+  in.ins.match = ifelse(SV_ID %in% fread(paste0(intermediate_ins_dir,'/',ins_seq,'_in_og_sig_breakends.tsv'))[(significance)]$SV_ID,1,0)
+  out.ins.rc.match = ifelse(SV_ID %in% fread(paste0(intermediate_ins_dir,'/',ins_seq,'_out_rc_sig_breakends.tsv'))[(significance)]$SV_ID,1,0)
+  in.ins.rc.match = ifelse(SV_ID %in% fread(paste0(intermediate_ins_dir,'/',ins_seq,'_in_rc_sig_breakends.tsv'))[(significance)]$SV_ID,1,0)
   
   return(c(SV_ID,out.ins.match,in.ins.match,out.ins.rc.match,in.ins.rc.match))
 }))
@@ -32,6 +33,15 @@ insertion.sv.calls.aligned = data.table(merge(insertion.sv.calls[ins_len <= 30 &
 
 write.table(insertion.sv.calls.aligned,paste0(workdir,'youyun/nti/analysis_files/insertions_w_sig_alignment_',format(Sys.time(), "%m%d%H"),'.tsv'),
             sep = '\t',row.names = FALSE)
+
+pdf(paste0(workdir,'/youyun/nti/analysis_files/DIPG_alignment_upset_plot_',format(Sys.time(), "%m%d%y%H"),'.pdf'),width=8,height=8)
+upset(insertion.sv.calls.aligned,sets = c('outside_ins_match','inside_ins_match','outside_ins_rc_match','inside_ins_rc_match'), 
+      sets.bar.color = "#56B4E9",empty.intersections = 'on')
+dev.off()
+
+# insertion.sv.calls.aligned = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_w_sig_alignment_022811.tsv'))
+# write.table(insertion.sv.calls.aligned,paste0(workdir,'youyun/nti/analysis_files/insertions_w_sig_alignment_',format(Sys.time(), "%m%d%H"),'.csv'),
+#             sep = ',',row.names = FALSE)
 
 
 # outside + outside -------------------------------------------------------
@@ -115,3 +125,4 @@ venn.diagram(
   cat.cex = 0.3,cat.fontface = "bold",cat.default.pos = "outer",cat.pos = c(-27, 27, 135),
   cat.dist = c(0.055, 0.055, 0.085),cat.fontfamily = "sans",rotation = 1
 )
+
