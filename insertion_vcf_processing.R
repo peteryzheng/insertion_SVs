@@ -11,6 +11,35 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
   workdir = '/xchip/beroukhimlab/'
 }
 
+# Helper functions ----------
+
+# Given a SV breakend, extract reference sequence of a certain window size inside and outside
+find_surrounding_seq = function(bases_2_extend,chr,start,cnt,side){
+  if((cnt == '+' & side == 'outside') || (cnt == '-' & side == 'inside')){
+    # extension towards higher genomic position
+    end = start+bases_2_extend-1
+    if(cnt == '+' & side == 'outside'){
+      # outside sequence starts one bp off of the breakend
+      # inside is 'inclusive' of the breakend bp
+      start = start + 1
+      end = end + 1
+    }
+    refseq = getSeq(Hsapiens,chr,start,end)
+  }else if((cnt == '-' & side == 'outside') || (cnt == '+' & side == 'inside')){
+    # extension towards lower genomic position
+    end = start-bases_2_extend+1
+    if(cnt == '-' & side == 'outside'){
+      # outside sequence starts one bp off of the breakend
+      # inside is 'inclusive' of the breakend bp
+      start = start - 1
+      end = end - 1
+    }
+    refseq = getSeq(Hsapiens,chr,end,start)
+  }
+  return(as.character(refseq))
+}
+
+# DATA ----------
 # PCAWG path
 sv_files = list.files(paste0(workdir,'/siyun/data/insertions/pcawg/'),
                       pattern = 'sv.vcf$',full.names = TRUE)
@@ -73,5 +102,11 @@ insertion.sv.calls$disc_mapq = as.numeric(gsub('DISC_MAPQ=','',str_extract(inser
 insertion.sv.calls$cnt_type = unlist(lapply(grepl('^[AGCT]',insertion.sv.calls$ALT),function(x) {ifelse(x,'+','-')}))
 colnames(insertion.sv.calls)
 
-write.table(insertion.sv.calls,paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv'),
-            sep = '\t',row.names = FALSE)
+insertion.sv.calls[,c('outside_ref','inside_ref') := list(
+  find_surrounding_seq(30*3,paste0('chr',seqnames),start,cnt_type,'outside'),
+  find_surrounding_seq(30*3,paste0('chr',seqnames),start,cnt_type,'inside')
+),by = .(SV_ID)]
+
+ins.file.path = paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv')
+write.table(insertion.sv.calls,ins.file.path,sep = '\t',row.names = FALSE)
+print(paste0('output file here: ',ins.file.path))

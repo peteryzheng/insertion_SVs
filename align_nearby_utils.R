@@ -219,10 +219,10 @@ if(!interactive()){
   }
   
   # insertion.sv.calls.subset = insertion.sv.calls[c(1:1000)]
-  insertion.sv.calls[,c('outside_ref','inside_ref') := list(
-    find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'outside'),
-    find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'inside')
-  ),by = .(SV_ID)]
+  # insertion.sv.calls[,c('outside_ref','inside_ref') := list(
+  #   find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'outside'),
+  #   find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'inside')
+  # ),by = .(SV_ID)]
     
   print(paste0('Aligning the insertion sequence [',ins,'] with a ',window,'X window using all breakends in file [',opt$data,'] and writing to [',intermediate_dir,']'))
   system.time(unlist(align_nearby_mc(ins,window,insertion.sv.calls,intermediate_dir,7,1,1,3)))
