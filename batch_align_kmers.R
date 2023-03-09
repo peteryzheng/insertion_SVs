@@ -16,8 +16,8 @@ dir.create(intermediate_dir,showWarnings = TRUE)
 # DIPG
 SV_file = 'insertions_SVs_processed_020716.tsv'
 # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
-# PCAWG
-SV_file = 'insertions_SVs_processed_021614.tsv'
+# PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
+SV_file = 'insertions_SVs_processed_030900.tsv'
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
 
 # directly submit jobs through r
@@ -66,7 +66,7 @@ print(paste0('The kmers are here: ',commands_text_path))
 template_task_array = c(
   "#!/bin/bash",
   "#$ -l h_rt=08:00:00",
-  "#$ -t 1-2",
+  paste0("#$ -t 1-",length(unique(insertion.sv.calls[ins_len <= 30 & ins_len >= 6]$ins_seq))),
   "#$ -pe smp 4 ",
   "#$ -binding linear:4 ",
   "#$ -l h_vmem=4G",
@@ -77,13 +77,14 @@ template_task_array = c(
   'source /broad/software/scripts/useuse',
   'use R-4.0',
   "",
-  paste0("kmer=$(sed -n  -e \"$SGE_TASK_IDp\"  ",commands_text_path,")"),
+  paste0("kmer=$(sed -n -e \"$SGE_TASK_ID p\"  ",commands_text_path,")"),
+  'echo $kmer',
   paste0(
-      "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i \"$kmer\" ",
+      "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
       " -w 2 -d /xchip/beroukhimlab/youyun/nti/analysis_files/",SV_file," -o ",intermediate_dir," "
     )
 )
 task_array_path = paste0(workdir,'youyun/nti/code/outputs/task_array_',format(Sys.time(), "%m%d%y%H%M"),'.sh')
 writeLines(text = template_task_array, task_array_path, sep = "\n", useBytes = FALSE)
 print(paste0('The task array script is here: ',task_array_path))
-
+system(paste0('qsub ',task_array_path))
