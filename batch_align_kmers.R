@@ -9,15 +9,15 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 
 intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
-intermediate_dir = paste0(intermediate_dir,'/ins_align_total_',format(Sys.time(), "%m%d%y%H"))
+intermediate_dir = paste0(intermediate_dir,'/ins_align_total_',format(Sys.time(), "%m%d%y%H%M"))
 # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_02102315')
 dir.create(intermediate_dir,showWarnings = TRUE)
 
 # DIPG
-SV_file = 'insertions_SVs_processed_020716.tsv'
-# insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
+SV_file = 'insertions_SVs_processed_filter_hypermut_050918.tsv'
 # PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
-SV_file = 'insertions_SVs_processed_030900.tsv'
+# SV_file = 'insertions_SVs_processed_030900.tsv'
+
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
 
 # directly submit jobs through r
@@ -72,7 +72,7 @@ template_task_array = c(
   "#$ -l h_vmem=4G",
   "#$ -o '/xchip/beroukhimlab/youyun/nti/code/outputs' ",
   "#$ -e '/xchip/beroukhimlab/youyun/nti/code/outputs' ",
-  "#$ -N ins_homeology",
+  paste0("#$ -N ins_homeology_",format(Sys.time(), "%m%d%y%H%M")),
   "",
   'source /broad/software/scripts/useuse',
   'use R-4.0',
@@ -87,4 +87,5 @@ template_task_array = c(
 task_array_path = paste0(workdir,'youyun/nti/code/outputs/task_array_',format(Sys.time(), "%m%d%y%H%M"),'.sh')
 writeLines(text = template_task_array, task_array_path, sep = "\n", useBytes = FALSE)
 print(paste0('The task array script is here: ',task_array_path))
-system(paste0('qsub ',task_array_path))
+# system('use UGER')
+# system(paste0('qsub ',task_array_path))

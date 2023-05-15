@@ -1,4 +1,6 @@
 library(data.table)
+library(ggplot2)
+library(RColorBrewer)
 library(stringr)
 library(BSgenome)
 library(BSgenome.Hsapiens.UCSC.hg19)
@@ -107,6 +109,23 @@ insertion.sv.calls[,c('outside_ref','inside_ref') := list(
   find_surrounding_seq(30*3,paste0('chr',seqnames),start,cnt_type,'inside')
 ),by = .(SV_ID)]
 
+
+ggplot(melt(merge(sv.calls[,.(total_SV = .N/2),Sample],insertion.sv.calls[,.(ins_SV = .N/2),Sample]),id.vars = 'Sample'),
+       aes(x = Sample,y = value,fill = variable)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1 , size = 5)) +
+  scale_fill_brewer(palette = "Set1")+
+  labs(x = "Sample", y = "Count") +
+  ggtitle("Histogram of total_SV and ins_SV by Sample")
+ggsave(paste0(workdir,'youyun/nti/analysis_files/SV_burden_',format(Sys.time(), "%m%d%H"),'.pdf'), 
+       plot = last_plot(), device = "pdf")
+
 ins.file.path = paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv')
+ins.file.filter.hypermut.path = paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_',
+                                       format(Sys.time(), "%m%d%H"),'.tsv')
 write.table(insertion.sv.calls,ins.file.path,sep = '\t',row.names = FALSE)
+write.table(insertion.sv.calls[Sample %in% sv.calls[,.N,Sample][N<= 500,]$Sample],
+            ins.file.filter.hypermut.path,sep = '\t',row.names = FALSE)
+print(paste0('Total number of samples after filter: ',
+             length(unique(insertion.sv.calls[Sample %in% sv.calls[,.N,Sample][N<= 500,]$Sample]$Sample))))
 print(paste0('output file here: ',ins.file.path))
