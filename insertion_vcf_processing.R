@@ -43,11 +43,11 @@ find_surrounding_seq = function(bases_2_extend,chr,start,cnt,side){
 
 # DATA ----------
 # PCAWG path
-sv_files = list.files(paste0(workdir,'/siyun/data/insertions/pcawg/'),
-                      pattern = 'sv.vcf$',full.names = TRUE)
-# # DIPG
-# sv_files = list.files(paste0(workdir,'Frank/DIPG/SVABAvcfs'),
+# sv_files = list.files(paste0(workdir,'/siyun/data/insertions/pcawg/'),
 #                       pattern = 'sv.vcf$',full.names = TRUE)
+# # DIPG
+sv_files = list.files(paste0(workdir,'Frank/DIPG/SVABAvcfs'),
+                      pattern = 'sv.vcf$',full.names = TRUE)
 
 # rbind them into one df
 colnames9 <- c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","Sample")
@@ -70,17 +70,21 @@ sv.calls = do.call(rbind,lapply(sv_files,
 ))
 
 # FILTERS ----------
-# filter for minimal qual score
-sv.calls = sv.calls[as.numeric(QUAL) > 15,]
-# filter for sv breakpoints with insertion sequences only
-insertion.sv.calls = sv.calls[grepl('INSERTION',INFO) & seqnames %in% c(1:22,'X','Y'),]
-insertion.sv.calls[,SV_ID := paste(Sample,seqnames,ID,sep = '__')]
+# filter for minimal qual score and samples with tumor in normal contamination
+sv.calls = sv.calls[as.numeric(QUAL) > 15 & !Sample %in% c('DIPG19_TOR_pair', 'DIPG58_TOR_pair', 
+                                                           'SJHGG008_A_STJ_WGS_pair', 'SJHGG041_D_STJ_WGS_pair'),]
+# filter for only the major chromosomes
+sv.calls = sv.calls[seqnames %in% c(1:22,'X','Y'),]
+sv.calls[,SV_ID := paste(Sample,seqnames,ID,sep = '__')]
 # making sure every breakend will have its pair (both breakends are on chr 1-22)
-insertion.sv.calls[,both_end_pass_filter := ifelse(.N == 2,TRUE,FALSE),,by = .(SV_pair_ID = gsub(':.*','',ID),Sample)] 
-insertion.sv.calls = insertion.sv.calls[both_end_pass_filter == TRUE]
+sv.calls[,both_end_pass_filter := ifelse(.N == 2,TRUE,FALSE),,by = .(SV_pair_ID = gsub(':.*','',ID),Sample)] 
+sv.calls = sv.calls[both_end_pass_filter == TRUE]
+# filter for sv breakpoints with insertion sequences only (if one breakend has insertion in info, the paired breakend will also have insertion in info)
+insertion.sv.calls = sv.calls[grepl('INSERTION',INFO),]
 
 print(paste0('Total number of SV breakends (qual score <= 15 discarded): ',nrow(sv.calls)))
-print(paste0('Total number of samples before insertion filter: ',length(sv_files)))
+# -4 bc 4 samples have tumor in normal contamination
+print(paste0('Total number of samples before insertion filter: ',length(sv_files)-4))
 print(paste0('Total number of samples before insertion filter (samples with any SVs): ',length(unique(sv.calls$Sample))))
 print(paste0('Percentage of SV breakends with MH before insertion filter: ',round(nrow(sv.calls[grepl('HOMSEQ',INFO)])/nrow(sv.calls),3)))
 
@@ -102,13 +106,11 @@ insertion.sv.calls$mapq = as.numeric(gsub('MAPQ=','',str_extract(insertion.sv.ca
 insertion.sv.calls$disc_mapq = as.numeric(gsub('DISC_MAPQ=','',str_extract(insertion.sv.calls$INFO,'DISC_MAPQ=[0-9]*')))
 # extracting +/- breakpoint
 insertion.sv.calls$cnt_type = unlist(lapply(grepl('^[AGCT]',insertion.sv.calls$ALT),function(x) {ifelse(x,'+','-')}))
-colnames(insertion.sv.calls)
 
 insertion.sv.calls[,c('outside_ref','inside_ref') := list(
-  find_surrounding_seq(30*3,paste0('chr',seqnames),start,cnt_type,'outside'),
-  find_surrounding_seq(30*3,paste0('chr',seqnames),start,cnt_type,'inside')
+  find_surrounding_seq(30*5,paste0('chr',seqnames),start,cnt_type,'outside'),
+  find_surrounding_seq(30*5,paste0('chr',seqnames),start,cnt_type,'inside')
 ),by = .(SV_ID)]
-
 
 ggplot(melt(merge(sv.calls[,.(total_SV = .N/2),Sample],insertion.sv.calls[,.(ins_SV = .N/2),Sample]),id.vars = 'Sample'),
        aes(x = Sample,y = value,fill = variable)) + 
@@ -120,9 +122,11 @@ ggplot(melt(merge(sv.calls[,.(total_SV = .N/2),Sample],insertion.sv.calls[,.(ins
 ggsave(paste0(workdir,'youyun/nti/analysis_files/SV_burden_',format(Sys.time(), "%m%d%H"),'.pdf'), 
        plot = last_plot(), device = "pdf")
 
+sv.file.path = paste0(workdir,'youyun/nti/analysis_files/total_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv')
 ins.file.path = paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_',format(Sys.time(), "%m%d%H"),'.tsv')
 ins.file.filter.hypermut.path = paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_',
                                        format(Sys.time(), "%m%d%H"),'.tsv')
+write.table(sv.calls,sv.file.path,sep = '\t',row.names = FALSE)
 write.table(insertion.sv.calls,ins.file.path,sep = '\t',row.names = FALSE)
 write.table(insertion.sv.calls[Sample %in% sv.calls[,.N,Sample][N<= 500,]$Sample],
             ins.file.filter.hypermut.path,sep = '\t',row.names = FALSE)

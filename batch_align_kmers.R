@@ -10,13 +10,18 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
 intermediate_dir = paste0(intermediate_dir,'/ins_align_total_',format(Sys.time(), "%m%d%y%H%M"))
+print(paste0('Output directory here: ',intermediate_dir))
 # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_02102315')
 dir.create(intermediate_dir,showWarnings = TRUE)
 
 # DIPG
-SV_file = 'insertions_SVs_processed_filter_hypermut_050918.tsv'
+SV_file = 'insertions_SVs_processed_051611.tsv'
+# SV_file = 'insertions_SVs_processed_filter_hypermut_051611.tsv'
 # PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
-# SV_file = 'insertions_SVs_processed_030900.tsv'
+# SV_file = 'insertions_SVs_processed_051518.tsv'
+# SV_file = 'insertions_SVs_processed_filter_hypermut_051518.tsv'
+
+print(paste0('SV file used is this: ',SV_file))
 
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
 
@@ -81,11 +86,11 @@ template_task_array = c(
   'echo $kmer',
   paste0(
       "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
-      " -w 2 -d /xchip/beroukhimlab/youyun/nti/analysis_files/",SV_file," -o ",intermediate_dir," "
+      " -w 5 -d /xchip/beroukhimlab/youyun/nti/analysis_files/",SV_file," -o ",intermediate_dir," "
     )
 )
 task_array_path = paste0(workdir,'youyun/nti/code/outputs/task_array_',format(Sys.time(), "%m%d%y%H%M"),'.sh')
 writeLines(text = template_task_array, task_array_path, sep = "\n", useBytes = FALSE)
 print(paste0('The task array script is here: ',task_array_path))
 # system('use UGER')
-# system(paste0('qsub ',task_array_path))
+system(paste0('qsub ',task_array_path))
