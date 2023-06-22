@@ -72,17 +72,15 @@ find_surrounding_seq = function(bases_2_extend,chr,start,cnt,side){
 find_best_alignment_substring = function(ins_seq,window_extend,chr,cnt,side,ref_seq,gap_open_pen,gap_ext_pen,sub_mat){
   if((cnt == '+' & side == 'outside') || (cnt == '-' & side == 'inside')){
     # extension towards higher genomic position
-    end = seq(nchar(ins_seq)*3,nchar(ins_seq)*window_extend,1)
-    # 2k - [3k-5k]
-    align_scores = unlist(lapply(substring(ref_seq,nchar(ins_seq)*2,end),function(x) {
+    end = seq(nchar(ins_seq)*1,nchar(ins_seq)*window_extend,1)
+    align_scores = unlist(lapply(substring(ref_seq,1,end),function(x) {
       pairwiseAlignment(ins_seq,DNAString(x),type = 'global-local',
                         substitutionMatrix = sub_mat,gapOpening = gap_open_pen,gapExtension = gap_ext_pen,scoreOnly = TRUE)
     }))
   }else if((cnt == '-' & side == 'outside') || (cnt == '+' & side == 'inside')){
     # extension towards lower genomic position
-    end = seq(nchar(ins_seq)*2+1,1,-1)
-    # [3k-5k] - 2k
-    align_scores = unlist(lapply(substring(ref_seq,end,nchar(ins_seq)*3),function(x) {
+    end = seq(nchar(ins_seq)*(window_extend-1)+1,1,-1)
+    align_scores = unlist(lapply(substring(ref_seq,end,nchar(ins_seq)*window_extend),function(x) {
       pairwiseAlignment(ins_seq,DNAString(x),type = 'global-local',
                         substitutionMatrix = sub_mat,gapOpening = gap_open_pen,gapExtension = gap_ext_pen,scoreOnly = TRUE)
     }))

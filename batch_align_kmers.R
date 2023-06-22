@@ -15,7 +15,7 @@ print(paste0('Output directory here: ',intermediate_dir))
 dir.create(intermediate_dir,showWarnings = TRUE)
 
 # DIPG
-SV_file = 'insertions_SVs_processed_051611.tsv'
+SV_file = 'insertions_SVs_processed_062115.tsv'
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051611.tsv'
 # PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
 # SV_file = 'insertions_SVs_processed_051518.tsv'
@@ -86,11 +86,11 @@ template_task_array = c(
   'echo $kmer',
   paste0(
       "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
-      " -w 5 -d /xchip/beroukhimlab/youyun/nti/analysis_files/",SV_file," -o ",intermediate_dir," "
+      " -w 2 -d /xchip/beroukhimlab/youyun/nti/analysis_files/",SV_file," -o ",intermediate_dir," "
     )
 )
 task_array_path = paste0(workdir,'youyun/nti/code/outputs/task_array_',format(Sys.time(), "%m%d%y%H%M"),'.sh')
 writeLines(text = template_task_array, task_array_path, sep = "\n", useBytes = FALSE)
 print(paste0('The task array script is here: ',task_array_path))
 # system('use UGER')
-system(paste0('qsub ',task_array_path))
+print(paste0('qsub ',task_array_path))

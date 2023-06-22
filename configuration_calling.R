@@ -10,19 +10,37 @@ if(Sys.getenv("LOGNAME") == 'youyunzheng'){
 }
 
 intermediate_dir = paste0(workdir,'/youyun/nti/analysis_files/insertions')
-dataset = 'DIPG'
+# dataset = 'DIPG'
 dataset = 'TCGA'
 if(dataset == 'DIPG'){
-  # DIPG
-  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_050916.tsv'))
-  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_05102316')
+  # # DIPG proximal
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_051611.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_03012300')
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_050916.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_05102316')
+  
+  # DIPG semi-proximal
+  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_051611.tsv'))
+  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0516231428')
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_051611.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0516231427')
 }else{
-  # TCGA
+  # # TCGA  proximal
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_03092312')
   # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_050918.tsv'))
   # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0510231628')
-  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv'))
-  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_03092312')
   
+  # TCGA semi-proximal
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_051518.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0516231150')
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_051518.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0516231148')
+
+  # TCGA consensus semi-proximal
+  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_062115.tsv'))
+  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0621231558/')
+
 }
 
 insertion.sv.calls.subset = insertion.sv.calls[ins_len <= 30 & ins_len >= 6]
