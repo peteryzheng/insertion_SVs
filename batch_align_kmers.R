@@ -15,13 +15,13 @@ print(paste0('Output directory here: ',intermediate_dir))
 dir.create(intermediate_dir,showWarnings = TRUE)
 
 # DIPG
-SV_file = 'insertions_SVs_processed_062115.tsv'
+SV_file = 'insertions_SVs_processed_062217.tsv'
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051611.tsv'
 # PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
 # SV_file = 'insertions_SVs_processed_051518.tsv'
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051518.tsv'
 
-print(paste0('SV file used is this: ',SV_file))
+print(paste0('SV file used is this: ',workdir,'youyun/nti/analysis_files/',SV_file))
 
 insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/',SV_file))
 

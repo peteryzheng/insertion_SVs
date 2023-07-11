@@ -37,9 +37,14 @@ if(dataset == 'DIPG'){
   # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_051518.tsv'))
   # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0516231148')
 
-  # TCGA consensus semi-proximal
-  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_062115.tsv'))
-  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0621231558/')
+  # TCGA other callers
+  # dRanger-snowman consensus
+  insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_062215.tsv'))
+  intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0622231546/')
+  # dRanger calls
+  # insertion.sv.calls = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_SVs_processed_062217.tsv'))
+  # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_0622231707/')
+
 
 }
 
@@ -169,25 +174,25 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
             paste0(workdir,'youyun/nti/analysis_files/',dataset,'_outside_outside_aligned_',format(Sys.time(), "%m%d%H"),'.tsv'),
             sep = '\t',row.names = FALSE)
 
-upset_df = dcast(melt(insertion.sv.calls.aligned[,.(SV_ID = paste0(Sample,'__',gsub(':.*','',ID)),SV_config_combo,outout_ins_avg,outout_ins_min,
-                                                    og_rc_match = paste0(gsub('.*:','',ID),':',outside_ins_match,'_',outside_ins_rc_match))],
-                      id.vars = 'SV_ID')[,value := paste0(variable,': ',value)],SV_ID~value,fill = 0,fun = function(x){ifelse(length(x) > 0,1,0)})
-pdf(paste0(workdir,'/youyun/nti/analysis_files/',dataset,'_alignment_outside_outside_upset_plot_',format(Sys.time(), "%m%d%y%H"),'.pdf'),width=8,height=8)
-upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+'),
-      sets.bar.color = "#56B4E9")
-upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
-                        "outout_ins_avg: 0","outout_ins_avg: 1","outout_ins_min: 0","outout_ins_min: 1"),
-      sets.bar.color = "#56B4E9",keep.order = TRUE)
-upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
-                        "og_rc_match: 1:0_0","og_rc_match: 1:0_1","og_rc_match: 1:1_0","og_rc_match: 1:1_1",
-                        "og_rc_match: 2:0_0","og_rc_match: 2:0_1","og_rc_match: 2:1_0","og_rc_match: 2:1_1"),
-      sets.bar.color = "#56B4E9",keep.order = TRUE,order.by = 'degree',nintersects = NA,decreasing = TRUE)
-upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
-                        "outout_ins_avg: 0","outout_ins_avg: 1","outout_ins_min: 0","outout_ins_min: 1",
-                        "og_rc_match: 1:0_0","og_rc_match: 1:0_1","og_rc_match: 1:1_0","og_rc_match: 1:1_1",
-                        "og_rc_match: 2:0_0","og_rc_match: 2:0_1","og_rc_match: 2:1_0","og_rc_match: 2:1_1"),
-      sets.bar.color = "#56B4E9",keep.order = TRUE,order.by = 'degree',nintersects = NA,decreasing = TRUE)
-dev.off()
+# upset_df = dcast(melt(insertion.sv.calls.aligned[,.(SV_ID = paste0(Sample,'__',gsub(':.*','',ID)),SV_config_combo,outout_ins_avg,outout_ins_min,
+#                                                     og_rc_match = paste0(gsub('.*:','',ID),':',outside_ins_match,'_',outside_ins_rc_match))],
+#                       id.vars = 'SV_ID')[,value := paste0(variable,': ',value)],SV_ID~value,fill = 0,fun = function(x){ifelse(length(x) > 0,1,0)})
+# pdf(paste0(workdir,'/youyun/nti/analysis_files/',dataset,'_alignment_outside_outside_upset_plot_',format(Sys.time(), "%m%d%y%H"),'.pdf'),width=8,height=8)
+# upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+'),
+#       sets.bar.color = "#56B4E9")
+# upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
+#                         "outout_ins_avg: 0","outout_ins_avg: 1","outout_ins_min: 0","outout_ins_min: 1"),
+#       sets.bar.color = "#56B4E9",keep.order = TRUE)
+# upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
+#                         "og_rc_match: 1:0_0","og_rc_match: 1:0_1","og_rc_match: 1:1_0","og_rc_match: 1:1_1",
+#                         "og_rc_match: 2:0_0","og_rc_match: 2:0_1","og_rc_match: 2:1_0","og_rc_match: 2:1_1"),
+#       sets.bar.color = "#56B4E9",keep.order = TRUE,order.by = 'degree',nintersects = NA,decreasing = TRUE)
+# upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+',
+#                         "outout_ins_avg: 0","outout_ins_avg: 1","outout_ins_min: 0","outout_ins_min: 1",
+#                         "og_rc_match: 1:0_0","og_rc_match: 1:0_1","og_rc_match: 1:1_0","og_rc_match: 1:1_1",
+#                         "og_rc_match: 2:0_0","og_rc_match: 2:0_1","og_rc_match: 2:1_0","og_rc_match: 2:1_1"),
+#       sets.bar.color = "#56B4E9",keep.order = TRUE,order.by = 'degree',nintersects = NA,decreasing = TRUE)
+# dev.off()
 
 # old outside outside calling 
 # insertion.sv.calls.aligned[,outout_ins := ifelse(
