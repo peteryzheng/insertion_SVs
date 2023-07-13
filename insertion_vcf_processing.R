@@ -106,10 +106,10 @@ caller <- "manta"
 #   pattern = "vcf$", full.names = TRUE
 # )
 # caller <- "svaba"
+
 # rbind them into one df
 colnames9 <- c("seqnames", "start", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "Sample")
 
-print(sv_files[1])
 sv.calls <- do.call(rbind, lapply(
   sv_files,
   function(x) {
@@ -129,8 +129,11 @@ sv.calls <- do.call(rbind, lapply(
 ))
 
 
-# FILTERS ----------
-# filter for minimal qual score and samples with tumor in normal contamination
+# FILTERS AND REFORMATTING ----------
+print(paste0("Using dataset [", dataset, "] and caller [", caller, "]"))
+# load different references for different datasets
+# filter for minimal qual score, samples with tumor in normal contamination
+# reformat certain VCFs
 if (dataset == "dipg") {
   sv.calls <- sv.calls[!Sample %in% c(
     "DIPG19_TOR_pair", "DIPG58_TOR_pair",
@@ -142,7 +145,6 @@ if (dataset == "dipg") {
 } else if (dataset == "hcmi") {
   library(BSgenome.Hsapiens.UCSC.hg38)
 }
-
 if (caller %in% c("consensus")) {
   sv.calls$callers <- gsub("CALLER=", "", str_extract(sv.calls$INFO, "CALLER=[SD]*"))
   print(table(sv.calls$callers))
@@ -197,7 +199,7 @@ sv.calls$cnt_type <- unlist(lapply(grepl("^[AGCT]", sv.calls$ALT), function(x) {
   ifelse(x, "+", "-")
 }))
 
-# filter for sv breakpoints with insertion sequences only (if one breakend has insertion in info, the paired breakend will also have insertion in info)
+# filter for sv breakpoints with insertion sequences only (if one breakend has insertion in info, the paired breakend will also have insertion in info) # nolint
 insertion.sv.calls <- sv.calls[grepl("INSERTION|FORSEQ|SVINSSEQ", INFO), ]
 
 print(paste0("Total number of SV breakends (qual score <= 15 discarded when qual score is available): ", nrow(sv.calls)))
@@ -205,7 +207,10 @@ print(paste0("Total number of SV breakends (qual score <= 15 discarded when qual
 print(paste0("Total number of samples before insertion filter: ", length(sv_files)))
 print(paste0("Total number of samples before insertion filter (samples with any SVs): ", length(unique(sv.calls$Sample))))
 print(paste0("Percentage of SV breakends with MH before insertion filter: ", round(nrow(sv.calls[grepl("HOMSEQ", INFO)]) / nrow(sv.calls), 3)))
-print(paste0("Total number of SV breakends after filtering for insertions (and chr 1-22,X,Y): ", nrow(insertion.sv.calls)))
+print(paste0(
+  "Total number of SV breakends after filtering for insertions (and chr 1-22,X,Y): ", nrow(insertion.sv.calls),
+  " (", round(nrow(insertion.sv.calls) / nrow(sv.calls), 3), ")"
+))
 print(paste0("Total number of samples after filter: ", length(unique(insertion.sv.calls$Sample))))
 print(paste0("Percentage of SV breakends with MH after filter: ", round(nrow(insertion.sv.calls[grepl("HOMSEQ", INFO)]) / nrow(insertion.sv.calls), 3)))
 
@@ -230,6 +235,7 @@ agct_ref = data.table(do.call("rbind", lapply(paste0("chr", c(1:22, "X", "Y")), 
   data.frame(t(alphabetFrequency(BSgenome.Hsapiens.UCSC.hg38[[x]])[c("A", "C", "G", "T")]))
 })))[, lapply(.SD, sum, na.rm = TRUE)]
 # normalize the ACGT count columns by the total count of the row
+total_bases_ref <- sum(agct_ref, na.rm = TRUE)
 agct_ref[, c("A", "C", "G", "T") := lapply(.SD, function(x) x / sum(agct_ref, na.rm = TRUE))]
 agct_ref$source <- "ref"
 
@@ -238,8 +244,17 @@ agct_ins = data.table(do.call("rbind", lapply(insertion.sv.calls$ins_seq, functi
   data.frame(t(alphabetFrequency(DNAString(x))[c("A", "C", "G", "T")]))
 })))[, lapply(.SD, sum, na.rm = TRUE)]
 # normalize the ACGT count columns by the total count of the row
-agct_ins[, c("A", "C", "G", "T") := lapply(.SD, function(x) x / sum(agct_ins, na.rm = TRUE))]
+total_bases_ins <- sum(agct_ins, na.rm = TRUE)
+agct_ins[, colnames(agct_ins) := lapply(.SD, function(x) x / sum(agct_ins, na.rm = TRUE))]
 agct_ins$source <- "ins"
+
+dhyper(
+  sum(agct_ins$A),
+  sum(agct_ref$A),
+  sum(agct_ins$A) + sum(agct_ref$A),
+  sum(agct_ins$A) + sum(agct_ins$C) + sum(agct_ins$G) + sum(agct_ins$T),
+  log = TRUE
+)
 
 # plot the distribution of ACGT between reference genome and insertion sequences
 # making the bars stack on top of each other
@@ -248,29 +263,33 @@ ggplot(
   aes(x = source, y = value, fill = variable)
 ) +
   geom_bar(position = "stack", stat = "identity") +
+  geom_text(aes(label = round(value, 3)), position = "stack", vjust = 2, size = 10, color = "#363434") +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5)) +
   scale_fill_brewer(palette = "Set2") +
   labs(x = "Source", y = "Count") +
-  ggtitle("Histogram of ACGT by Source")
+  ggtitle(paste0("Histogram of ACGT by Source in ", dataset, " called by ", caller)) +
+  theme_set(theme_bw(base_size = 30))
 pdf_acgt_output_path <- paste0(workdir, "youyun/nti/analysis_files/ACGT_content_", current_time, ".pdf")
 print(paste0("Saving ACGT content plot to ", pdf_acgt_output_path))
 ggsave(pdf_acgt_output_path, plot = last_plot(), device = "pdf")
 
 # plot the cumulative density and probability density distribution of insertion lengths
-# adding in the right y axis annotations
-ggplot(insertion.sv.calls, aes(x = log10(ins_len))) +
-  geom_density(fill = "#12c3d3", alpha = 0.2) +
-  geom_line(stat = "ecdf", color = "#f84c18bb") +
-  labs(x = "Log10 Insertion Length", y = "Density") +
-  ggtitle("Density and Cumulative Density of Insertion Lengths") +
-  xlim(c(0, max(log10(insertion.sv.calls$ins_len)))) +
+
+ggplot(insertion.sv.calls, aes(x = ins_len)) +
+  geom_histogram(aes(y = ..count.. / nrow(insertion.sv.calls[ins_len == 1])), binwidth = 1, fill = "#12c3d3", alpha = 0.8) +
   scale_y_continuous(
-    sec.axis = sec_axis(~ . * 100, name = "Cumulative Density")
-  )
+    sec.axis = sec_axis(~ . * nrow(insertion.sv.calls[ins_len == 1]), name = "Counts")
+  ) +
+  geom_line(stat = "ecdf", color = "#f84c18bb") +
+  labs(x = "Insertion Length", y = "CDF") +
+  ggtitle(paste0("Insertion Lengths in ", dataset, " Called by ", caller)) +
+  coord_cartesian(xlim = c(0, 75)) +
+  geom_vline(xintercept = quantile(insertion.sv.calls$ins_len, 0.75), linetype = "dashed", color = "#d31313") +
+  theme(text = element_text(size = 24))
+# theme_set(theme_bw(base_size = 20))
 pdf_ins_dens_output_path <- paste0(workdir, "youyun/nti/analysis_files/ins_len_density_", current_time, ".pdf")
 print(paste0("Saving insertion length density plot to ", pdf_ins_dens_output_path))
-ggsave(pdf_ins_dens_output_path, plot = last_plot(), device = "pdf")
-
+ggsave(pdf_ins_dens_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
 
 ggplot(
   melt(merge(sv.calls[, .(total_SV = .N / 2), Sample], insertion.sv.calls[, .(ins_SV = .N / 2), Sample]), id.vars = "Sample"),
@@ -280,7 +299,8 @@ ggplot(
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5)) +
   scale_fill_brewer(palette = "Set1") +
   labs(x = "Sample", y = "Count") +
-  ggtitle("Histogram of total_SV and ins_SV by Sample")
+  ggtitle("Histogram of total_SV and ins_SV by Sample") +
+  theme_set(theme_bw(base_size = 20))
 pdf_output_path <- paste0(workdir, "youyun/nti/analysis_files/SV_burden_", current_time, ".pdf")
 print(paste0("Saving SV burden plot to ", pdf_output_path))
 ggsave(pdf_output_path, plot = last_plot(), device = "pdf")
