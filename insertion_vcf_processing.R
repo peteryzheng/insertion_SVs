@@ -3,6 +3,7 @@ library(ggplot2)
 library(RColorBrewer)
 library(stringr)
 library(BSgenome)
+library(ggrepel)
 
 
 # reading input ----------
@@ -96,16 +97,16 @@ find_surrounding_seq <- function(bases_2_extend, chr, start, cnt, side) {
 
 # HCMI -------------------------------------
 dataset = "hcmi"
-# # manta
-sv_files = list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
-  pattern = "vcf$", full.names = TRUE
-)
-caller <- "manta"
-# svaba
-# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+# manta
+# sv_files = list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
 #   pattern = "vcf$", full.names = TRUE
 # )
-# caller <- "svaba"
+# caller <- "manta"
+# svaba
+sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+  pattern = "vcf$", full.names = TRUE
+)
+caller <- "svaba"
 
 # rbind them into one df
 colnames9 <- c("seqnames", "start", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "Sample")
@@ -120,7 +121,7 @@ sv.calls <- do.call(rbind, lapply(
     } else {
       tmp <- tmp[, c(1:8)]
       # assign sample name column
-      tmp$Sample <- gsub(".*/|.svaba.*|.svfix.*|.broad-dRanger_snowman.*", "", x)
+      tmp$Sample <- gsub(".*/|.svaba.*|.svfix.*|.broad-dRanger_snowman.*|.final.SV.WGS.vcf", "", x)
     }
     # assign the correct column names
     colnames(tmp) <- colnames9
@@ -229,52 +230,90 @@ if (any(grepl("chr", insertion.sv.calls$seqnames))) {
 
 # OUTPUTS --------------------
 current_time <- format(Sys.time(), "%m%d%H%M")
+insertion.sv.calls[, ins_count := .N, by = Sample]
 # look at the distribution of ACGT
 # first getting the reference genome's ACGT distribution
-agct_ref = data.table(do.call("rbind", lapply(paste0("chr", c(1:22, "X", "Y")), function(x) {
-  data.frame(t(alphabetFrequency(BSgenome.Hsapiens.UCSC.hg38[[x]])[c("A", "C", "G", "T")]))
-})))[, lapply(.SD, sum, na.rm = TRUE)]
-# normalize the ACGT count columns by the total count of the row
-total_bases_ref <- sum(agct_ref, na.rm = TRUE)
-agct_ref[, c("A", "C", "G", "T") := lapply(.SD, function(x) x / sum(agct_ref, na.rm = TRUE))]
-agct_ref$source <- "ref"
+for (k in c(1:3)) {
+  agct_ref <- data.table(do.call("rbind", lapply(paste0("chr", c(1:22, "X", "Y")), function(x) {
+    data.frame(t(oligonucleotideFrequency(BSgenome.Hsapiens.UCSC.hg38[[x]], width = k)))
+  })))[, lapply(.SD, sum, na.rm = TRUE)]
+  # normalize the ACGT count columns by the total count of the row
+  total_bases_ref <- sum(agct_ref, na.rm = TRUE)
+  agct_ref[, colnames(agct_ref) := lapply(.SD, function(x) x / sum(agct_ref, na.rm = TRUE))]
+  agct_ref$source <- "ref"
 
-# then getting the ACGT distribution of the insertion sequences
-agct_ins = data.table(do.call("rbind", lapply(insertion.sv.calls$ins_seq, function(x) {
-  data.frame(t(alphabetFrequency(DNAString(x))[c("A", "C", "G", "T")]))
-})))[, lapply(.SD, sum, na.rm = TRUE)]
-# normalize the ACGT count columns by the total count of the row
-total_bases_ins <- sum(agct_ins, na.rm = TRUE)
-agct_ins[, colnames(agct_ins) := lapply(.SD, function(x) x / sum(agct_ins, na.rm = TRUE))]
-agct_ins$source <- "ins"
+  # then getting the ACGT distribution of the insertion sequences
+  agct_ins <- data.table(do.call("rbind", lapply(insertion.sv.calls$ins_seq, function(x) {
+    data.frame(t(oligonucleotideFrequency(DNAString(x), width = k)))
+  })))[, lapply(.SD, sum, na.rm = TRUE)]
+  # normalize the ACGT count columns by the total count of the row
+  total_bases_ins <- sum(agct_ins, na.rm = TRUE)
+  agct_ins[, colnames(agct_ins) := lapply(.SD, function(x) x / sum(agct_ins, na.rm = TRUE))]
+  agct_ins$source <- "ins"
 
-dhyper(
-  sum(agct_ins$A),
-  sum(agct_ref$A),
-  sum(agct_ins$A) + sum(agct_ref$A),
-  sum(agct_ins$A) + sum(agct_ins$C) + sum(agct_ins$G) + sum(agct_ins$T),
-  log = TRUE
-)
+  agct_ins_sample <- data.table(do.call("rbind", lapply(unique(insertion.sv.calls$Sample), function(y) {
+    oligo_freq <- data.table(do.call("rbind", lapply(insertion.sv.calls[Sample == y]$ins_seq, function(x) {
+      data.frame(t(oligonucleotideFrequency(DNAString(x), width = k)))
+    })))[, lapply(.SD, sum, na.rm = TRUE)]
+    oligo_freq <- oligo_freq / sum(oligo_freq, na.rm = TRUE)
+  })))
 
-# plot the distribution of ACGT between reference genome and insertion sequences
-# making the bars stack on top of each other
-ggplot(
-  melt(rbind(agct_ref, agct_ins), id.vars = "source"),
-  aes(x = source, y = value, fill = variable)
-) +
-  geom_bar(position = "stack", stat = "identity") +
-  geom_text(aes(label = round(value, 3)), position = "stack", vjust = 2, size = 10, color = "#363434") +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 5)) +
-  scale_fill_brewer(palette = "Set2") +
-  labs(x = "Source", y = "Count") +
-  ggtitle(paste0("Histogram of ACGT by Source in ", dataset, " called by ", caller)) +
-  theme_set(theme_bw(base_size = 30))
-pdf_acgt_output_path <- paste0(workdir, "youyun/nti/analysis_files/ACGT_content_", current_time, ".pdf")
-print(paste0("Saving ACGT content plot to ", pdf_acgt_output_path))
-ggsave(pdf_acgt_output_path, plot = last_plot(), device = "pdf")
+  kmer_p_val <- p.adjust(unlist(lapply(colnames(agct_ins_sample), function(x) {
+    # print(paste0("mean of samples for base(s) ", x, ": ", mean(agct_ins_sample[[x]], na.rm = TRUE)))
+    # print(paste0("reference proportion of base(s) ", x, ": ", agct_ref[[x]]))
+    # print(t.test(agct_ins_sample[[x]], mu = agct_ref[[x]]))
+    p_val <- t.test(agct_ins_sample[[x]], mu = agct_ref[[x]])$p.value
+    # if (p_val < 0.05) {
+    #   print(paste0("p-value of base(s) ", x, ": ", p_val))
+    # }
+    return(p_val)
+  })), method = "fdr")
+  print(paste0(
+    "The base(s) that are significantly different between insertion sequences and reference genome after fdr is/are: ",
+    paste0(colnames(agct_ins_sample)[kmer_p_val < 0.05], collapse = ", "),
+    " which is ", length(colnames(agct_ins_sample)[kmer_p_val < 0.05]), " out of ", length(colnames(agct_ins_sample)), " bases"
+  ))
+
+  # plot the distribution of ACGT between reference genome and insertion sequences
+  # making the bars stack on top of each other
+  # make the geom text stack but dodge each other
+  mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(ncol(agct_ref))
+  ggplot(
+    merge(melt(rbind(agct_ref, agct_ins), id.vars = "source"), data.table(variable = colnames(agct_ins_sample), p_val = kmer_p_val), all.x = TRUE),
+    aes(x = source, y = value, fill = variable)
+  ) +
+    theme(legend.position = "top") +
+    geom_bar(position = "stack", stat = "identity") +
+    geom_text_repel(aes(label = ifelse(p_val < 0.05, paste0(variable, ": ", round(value, 3)), "")),
+      position = "stack", vjust = 0, size = 4, color = "#363434", box.padding = 0.5
+    ) +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 10)) +
+    scale_fill_manual(values = mycolors) +
+    labs(x = "Source", y = "Count") +
+    ggtitle(paste0("Histogram of ACGT by Source in ", dataset, " called by ", caller))
+
+  pdf_acgt_output_path <- paste0(workdir, "youyun/nti/analysis_files/ACGT_content_", k, "mer_", current_time, ".pdf")
+  print(paste0("Saving ACGT content plot to ", pdf_acgt_output_path))
+  ggsave(pdf_acgt_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
+}
+
+# bin the samples by how many insertions they have, and make different facets for each bin
+# I want to make 9 bins of equal sample size from the smaller to largest number of insertions any given sample can have in our cohort
+quantiles <- quantile(unique(insertion.sv.calls[, .(ins_count), by = .(Sample)])$ins_count, seq(0, 1, 0.1))
+insertion.sv.calls[, ins_count_bin := cut(ins_count, breaks = quantiles, include.lowest = TRUE)]
+ggplot(insertion.sv.calls, aes(x = log10(ins_len))) +
+  geom_density(aes(fill = Sample), color = "gray", alpha = 0.05) +
+  labs(x = "Log10 Insertion Length", y = "Density") +
+  ggtitle(paste0("Insertion Lengths in ", dataset, " Called by ", caller)) +
+  theme(legend.position = "none") +
+  coord_cartesian(xlim = c(0, 2)) +
+  facet_wrap(~ins_count_bin, scales = "free", ncol = 3)
+pdf_ins_dens_bin_output_path <- paste0(workdir, "youyun/nti/analysis_files/ins_len_density_per_ins_burden_bin_", current_time, ".pdf")
+print(paste0("Saving insertion length density plot by insertion burden bin to ", pdf_ins_dens_bin_output_path))
+ggsave(pdf_ins_dens_bin_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
+
 
 # plot the cumulative density and probability density distribution of insertion lengths
-
 ggplot(insertion.sv.calls, aes(x = ins_len)) +
   geom_histogram(aes(y = ..count.. / nrow(insertion.sv.calls[ins_len == 1])), binwidth = 1, fill = "#12c3d3", alpha = 0.8) +
   scale_y_continuous(
