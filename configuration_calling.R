@@ -1,11 +1,12 @@
-library(VennDiagram)
 library(data.table)
 library(UpSetR)
 
 # local vs UGER
-if (Sys.getenv("LOGNAME") == "youyunzheng") {
+if (Sys.getenv("HOME") %in%  c('/Users/youyun','/Users/youyunzheng')) {
+  # in a local mac, the home directory is usuaully at '/Users/[username]'
   workdir <- "~/Documents/HMS/PhD/beroukhimlab/broad_mount/"
 } else {
+  # in dipg or uger, the home directory is usuaully at '/home/unix/[username]'
   workdir <- "/xchip/beroukhimlab/"
 }
 
@@ -48,20 +49,23 @@ if (dataset == "DIPG") {
 } else {
   # HCMI proximal
   # manta
-  # insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_07121652.tsv"))
-  # intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0712232144/")
+  # insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_07262251.tsv"))
+  # intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0727231254/")
+  # print("Manta")
   # svaba
-  insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_07121409.tsv"))
-  intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0712232142/")
+  insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_08141739.tsv"))
+  intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0814231751/")
+  print("SvABA")
 }
 
 insertion.sv.calls.subset <- insertion.sv.calls[ins_len <= 30 & ins_len >= 6]
+print(paste0("number of insertion SVs with insertion length 6 to 30: ", nrow(insertion.sv.calls.subset)))
 
 # single breakend matching calling ----------
 match.results <- data.table(t(apply(insertion.sv.calls.subset, 1, function(x) {
   # x = as.character(insertion.sv.calls.subset[2,])
   ins_seq <- x[which(colnames(insertion.sv.calls) == "ins_seq")]
-  current_SV_ID <- x[which(colnames(insertion.sv.calls) == "SV_ID")]
+  current_breakend_ID <- x[which(colnames(insertion.sv.calls) == "breakend_ID")]
   intermediate_ins_dir <- paste0(intermediate_dir, "/", ins_seq)
 
   out_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"))
@@ -69,54 +73,92 @@ match.results <- data.table(t(apply(insertion.sv.calls.subset, 1, function(x) {
   out_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"))
   in_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"))
 
-  # Checking if out SV_ID is in the significant match breakend list in the output in the 4 possible configurations
+  # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
   out.ins.match <- c(
-    out_og_breakend_results[SV_ID == current_SV_ID]$quantile,
-    out_og_breakend_results[SV_ID == current_SV_ID]$j_min,
-    ifelse(current_SV_ID %in% out_og_breakend_results[(significance)]$SV_ID, 1, 0)
+    out_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+    out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min,
+    ifelse(current_breakend_ID %in% out_og_breakend_results[(significance)]$breakend_ID, 1, 0)
   )
   in.ins.match <- c(
-    in_og_breakend_results[SV_ID == current_SV_ID]$quantile,
-    in_og_breakend_results[SV_ID == current_SV_ID]$j_min,
-    ifelse(current_SV_ID %in% in_og_breakend_results[(significance)]$SV_ID, 1, 0)
+    in_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+    in_og_breakend_results[breakend_ID == current_breakend_ID]$j_min,
+    ifelse(current_breakend_ID %in% in_og_breakend_results[(significance)]$breakend_ID, 1, 0)
   )
   out.ins.rc.match <- c(
-    out_rc_breakend_results[SV_ID == current_SV_ID]$quantile,
-    out_rc_breakend_results[SV_ID == current_SV_ID]$j_min,
-    ifelse(current_SV_ID %in% out_rc_breakend_results[(significance)]$SV_ID, 1, 0)
+    out_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+    out_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min,
+    ifelse(current_breakend_ID %in% out_rc_breakend_results[(significance)]$breakend_ID, 1, 0)
   )
   in.ins.rc.match <- c(
-    in_rc_breakend_results[SV_ID == current_SV_ID]$quantile,
-    in_rc_breakend_results[SV_ID == current_SV_ID]$j_min,
-    ifelse(current_SV_ID %in% in_rc_breakend_results[(significance)]$SV_ID, 1, 0)
+    in_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+    in_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min,
+    ifelse(current_breakend_ID %in% in_rc_breakend_results[(significance)]$breakend_ID, 1, 0)
   )
 
-  return(c(current_SV_ID, out.ins.match, in.ins.match, out.ins.rc.match, in.ins.rc.match))
+  return(c(current_breakend_ID, out.ins.match, in.ins.match, out.ins.rc.match, in.ins.rc.match))
 })))
+
 # merge the result back into the original sv file
 colnames(match.results) <- c(
-  "SV_ID", "outside_ins_match_quantile", "outside_ins_match_j_max_quantile", "outside_ins_match",
+  "breakend_ID", "outside_ins_match_quantile", "outside_ins_match_j_max_quantile", "outside_ins_match",
   "inside_ins_match_quantile", "inside_ins_match_j_max_quantile", "inside_ins_match",
   "outside_ins_rc_match_quantile", "outside_ins_rc_match_j_max_quantile", "outside_ins_rc_match",
   "inside_ins_rc_match_quantile", "inside_ins_rc_match_j_max_quantile", "inside_ins_rc_match"
 )
-match.results <- match.results[, lapply(.SD, as.numeric), by = SV_ID]
-insertion.sv.calls.aligned <- data.table(merge(insertion.sv.calls.subset, match.results, by = "SV_ID"))
+match.results <- match.results[, lapply(.SD, as.numeric), by = breakend_ID]
+insertion.sv.calls.aligned <- data.table(merge(insertion.sv.calls.subset, match.results, by = "breakend_ID"))
 
-insertion.sv.calls.aligned$seqnames <- factor(insertion.sv.calls.aligned$seqnames, levels = c(seq(1, 22, 1), "X"))
-insertion.sv.calls.aligned[, c("chr_order", "SV_config_combo") := list(ifelse(seqnames[1] <= seqnames[2], TRUE, FALSE), paste0(cnt_type, collapse = "")),
-  by = .(SV_ID = gsub(":.*", "", ID), Sample)
+insertion.sv.calls.aligned[, c(
+  "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
+  "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
+) := lapply(.SD, function(x) {
+  1 - x
+}),
+.SDcols = c(
+  "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
+  "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
+)
+][, c(
+  "outside_ins_match_quantile_fdr", "outside_ins_rc_match_quantile_fdr",
+  "inside_ins_match_quantile_fdr", "inside_ins_rc_match_quantile_fdr"
+) := lapply(.SD, function(x) p.adjust(x, method = "fdr")),
+.SDcols = c(
+  "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
+  "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
+)
 ]
-write.table(insertion.sv.calls.aligned, paste0(workdir, "youyun/nti/analysis_files/", dataset, "_insertions_w_sig_alignment_", format(Sys.time(), "%m%d%H"), ".tsv"),
+
+insertion.sv.calls.aligned[
+  ,c('outside_ins_match','outside_ins_rc_match','inside_ins_match','inside_ins_rc_match') := 
+  list(
+    ifelse(outside_ins_match_quantile_fdr < 0.05,1,0),
+    ifelse(outside_ins_rc_match_quantile_fdr < 0.05,1,0),
+    ifelse(inside_ins_match_quantile_fdr < 0.05,1,0),
+    ifelse(inside_ins_rc_match_quantile_fdr < 0.05,1,0)
+  )
+]
+
+if (any(grepl(insertion.sv.calls.aligned$seqnames, pattern = "chr"))) {
+  insertion.sv.calls.aligned$seqnames <- factor(insertion.sv.calls.aligned$seqnames, levels = paste0("chr", c(seq(1, 22, 1), "X", "Y")))
+} else {
+  insertion.sv.calls.aligned$seqnames <- factor(insertion.sv.calls.aligned$seqnames, levels = c(seq(1, 22, 1), "X", "Y"))
+}
+insertion.sv.calls.aligned[, c("chr_order", "SV_config_combo") := list(ifelse(seqnames[1] <= seqnames[2], TRUE, FALSE), paste0(cnt_type, collapse = "")),
+  by = .(SV_ID = gsub(":[0-2]$", "", ID), Sample)
+]
+current_time <- format(Sys.time(), "%m%d%H%M")
+print(paste0("writing insertion sv alignment calls to: ", paste0(workdir, "youyun/nti/analysis_files/", dataset, "_insertions_w_sig_alignment_", current_time, ".tsv")))
+write.table(insertion.sv.calls.aligned, paste0(workdir, "youyun/nti/analysis_files/", dataset, "_insertions_w_sig_alignment_", current_time, ".tsv"),
   sep = "\t", row.names = FALSE
 )
+
 # making a upset plot on the breakend matching result
-pdf(paste0(workdir, "/youyun/nti/analysis_files/", dataset, "_alignment_upset_plot_", format(Sys.time(), "%m%d%y%H"), ".pdf"),
+print(paste0("writing upset plot to: ", paste0(workdir, "/youyun/nti/analysis_files/", dataset, "_alignment_upset_plot_", current_time, ".pdf")))
+pdf(paste0(workdir, "/youyun/nti/analysis_files/", dataset, "_alignment_upset_plot_", current_time, ".pdf"),
   width = 8, height = 8, onefile = FALSE
 )
-upset(insertion.sv.calls.aligned,
-  sets = c("outside_ins_match", "inside_ins_match", "outside_ins_rc_match", "inside_ins_rc_match"),
-  sets.bar.color = "#56B4E9"
+upset(insertion.sv.calls.aligned[,.(outside_ins_match,outside_ins_rc_match,inside_ins_match,inside_ins_rc_match)],
+  sets.bar.color = "#56B4E9",empty.intersections = TRUE
 )
 dev.off()
 # insertion.sv.calls.aligned = fread(paste0(workdir,'youyun/nti/analysis_files/insertions_w_sig_alignment_030916.tsv'))
@@ -129,18 +171,18 @@ convolve_sig <- function(ins_seq, intermediate_dir, side1, side2) {
   # side1 = 'out_og'
   # side2 = 'out_og'
   # we are calculating convolution background by convolving the two sides (i.e. outog with outog) within a SV breakend pair
-  side1_quants <- fread(paste0(intermediate_dir, "/", ins_seq, "/", ins_seq, "_", side1, "_sig_breakends.tsv"))[, .(SV_ID, side1_quantile = quantile)]
-  side2_quants <- fread(paste0(intermediate_dir, "/", ins_seq, "/", ins_seq, "_", side2, "_sig_breakends.tsv"))[, .(SV_ID, side2_quantile = quantile)]
-  merge_quants <- merge(side1_quants, side2_quants, by = "SV_ID")
+  side1_quants <- fread(paste0(intermediate_dir, "/", ins_seq, "/", ins_seq, "_", side1, "_sig_breakends.tsv"))[, .(breakend_ID, side1_quantile = quantile)]
+  side2_quants <- fread(paste0(intermediate_dir, "/", ins_seq, "/", ins_seq, "_", side2, "_sig_breakends.tsv"))[, .(breakend_ID, side2_quantile = quantile)]
+  merge_quants <- merge(side1_quants, side2_quants, by = "breakend_ID")
   # averaging between side1 quantile of breakend 1 and side 2 quantile of breakend 2, then side 1 quantile of breakend 2 and side 2 quantile of breakend 1
   conv_avg_quants <- merge_quants[, .(mean1 = (side1_quantile[1] + side2_quantile[2]) / 2, mean2 = (side1_quantile[2] + side2_quantile[1]) / 2),
     # per breakend pair of SV
-    by = gsub("__.*.__|:1|:2", "", SV_ID)
+    by = gsub("__.*.__|:0$|:1$|:2$", "", breakend_ID)
   ]
   # min value between side1 quantile of breakend 1 and side 2 quantile of breakend 2, then side 1 quantile of breakend 2 and side 2 quantile of breakend 1
   conv_min_quants <- merge_quants[, .(min1 = min(side1_quantile[1], side2_quantile[2]), min2 = min(side1_quantile[2], side2_quantile[1])),
     # per breakend pair of SV
-    by = gsub("__.*.__|:1|:2", "", SV_ID)
+    by = gsub("__.*.__|:0$|:1$|:2$", "", breakend_ID)
   ]
   c(
     cutoff_avg = as.numeric(quantile(c(conv_avg_quants$mean1, conv_avg_quants$mean2), 0.95)),
@@ -174,7 +216,7 @@ insertion.sv.calls.aligned[, c("cutoff_avg", "cutoff_min") := as.list(
     # for -/- or +/+ we use outside og outside rc as background for convolution
     convolve_sig(unique(ins_seq), intermediate_dir, "out_og", "out_rc")
   )
-), by = .(SV_ID = gsub(":.*", "", ID), Sample)]
+), by = .(SV_ID = gsub(":[0-2]$", "", ID), Sample)]
 
 insertion.sv.calls.aligned[
   , c("outout_ins_avg", "outout_ins_min") := list(
@@ -199,7 +241,7 @@ insertion.sv.calls.aligned[
     )
     )
   ),
-  by = .(SV_ID = gsub(":.*", "", ID), Sample)
+  by = .(SV_ID = gsub(":[0-2]$", "", ID), Sample)
 ]
 table(insertion.sv.calls.aligned$outout_ins_avg)
 table(insertion.sv.calls.aligned$outout_ins_min)
@@ -208,9 +250,9 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
   sep = "\t", row.names = FALSE
 )
 
-# upset_df = dcast(melt(insertion.sv.calls.aligned[,.(SV_ID = paste0(Sample,'__',gsub(':.*','',ID)),SV_config_combo,outout_ins_avg,outout_ins_min,
+# upset_df = dcast(melt(insertion.sv.calls.aligned[,.(breakend_ID = paste0(Sample,'__',gsub(':.*','',ID)),SV_config_combo,outout_ins_avg,outout_ins_min,
 #                                                     og_rc_match = paste0(gsub('.*:','',ID),':',outside_ins_match,'_',outside_ins_rc_match))],
-#                       id.vars = 'SV_ID')[,value := paste0(variable,': ',value)],SV_ID~value,fill = 0,fun = function(x){ifelse(length(x) > 0,1,0)})
+#                       id.vars = 'breakend_ID')[,value := paste0(variable,': ',value)],breakend_ID~value,fill = 0,fun = function(x){ifelse(length(x) > 0,1,0)})
 # pdf(paste0(workdir,'/youyun/nti/analysis_files/',dataset,'_alignment_outside_outside_upset_plot_',format(Sys.time(), "%m%d%y%H"),'.pdf'),width=8,height=8)
 # upset(upset_df,sets = c('SV_config_combo: ++','SV_config_combo: --','SV_config_combo: +-','SV_config_combo: -+'),
 #       sets.bar.color = "#56B4E9")
@@ -240,10 +282,10 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
 #          all(c(outside_ins_match[2],outside_ins_rc_match[1])>0)),
 #     TRUE,FALSE
 #   )),
-#   by = .(SV_ID = gsub(':.*','',ID),Sample)]
+#   by = .(SV_ID = gsub(":[0-2]$", "", ID),Sample)]
 # table(insertion.sv.calls.aligned$outout_ins)
-# upset(dcast(insertion.sv.calls.aligned[,.(SV_ID,SV_config_combo,outout_ins = ifelse(outout_ins,1,0))],
-#             formula = SV_ID+outout_ins~SV_config_combo,fill = 0),
+# upset(dcast(insertion.sv.calls.aligned[,.(breakend_ID,SV_config_combo,outout_ins = ifelse(outout_ins,1,0))],
+#             formula = breakend_ID+outout_ins~SV_config_combo,fill = 0),
 #       sets = c('++','--','+-','-+','outout_ins'),
 #       sets.bar.color = "#56B4E9",empty.intersections = TRUE)
 
@@ -272,7 +314,7 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
 #                             (min(c(outside_ins_match_quantile[2],outside_ins_rc_match_quantile[1])) >
 #                                convolve_sig(unique(ins_seq),intermediate_dir,'out_og','out_rc')["cutoff_min"])),
 #                        TRUE,FALSE))
-#   ),by = .(SV_ID = gsub(':.*','',ID),Sample)
+#   ),by = .(SV_ID = gsub(":[0-2]$", "", ID),Sample)
 # ]
 #
 # old outside inside calling
@@ -292,7 +334,7 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
 #       ),
 #     TRUE,FALSE
 #   )),
-#   by = .(SV_ID = gsub(':.*','',ID),Sample)]
+#   by = .(SV_ID = gsub(":[0-2]$", "", ID),Sample)]
 # table(insertion.sv.calls.aligned$outin_ins)
 # write.table(insertion.sv.calls.aligned[outin_ins & ins_len > 4],
 #             paste0(workdir,'youyun/nti/analysis_files/DIPG_outside_inside_aligned_',format(Sys.time(), "%m%d%H"),'.tsv'),
@@ -310,14 +352,14 @@ write.table(insertion.sv.calls.aligned[outout_ins_avg | outout_ins_min],
 #          all(c(inside_ins_match[2],inside_ins_rc_match[1])>0)),
 #     TRUE,FALSE
 #   )),
-#   by = .(SV_ID = gsub(':.*','',ID),Sample)]
+#   by = .(SV_ID = gsub(":[0-2]$", "", ID),Sample)]
 # table(insertion.sv.calls.aligned$inin_ins)
 # write.table(insertion.sv.calls.aligned[inin_ins & ins_len > 4],
 #             paste0(workdir,'youyun/nti/analysis_files/DIPG_inside_inside_aligned_',format(Sys.time(), "%m%d%H"),'.tsv'),
 #             sep = '\t',row.names = FALSE)
 #
 # venn.diagram(
-#   x = list(insertion.sv.calls.aligned[outout_ins == TRUE]$SV_ID,insertion.sv.calls.aligned[outin_ins == TRUE]$SV_ID,insertion.sv.calls.aligned[inin_ins == TRUE]$SV_ID),
+#   x = list(insertion.sv.calls.aligned[outout_ins == TRUE]$breakend_ID,insertion.sv.calls.aligned[outin_ins == TRUE]$breakend_ID,insertion.sv.calls.aligned[inin_ins == TRUE]$breakend_ID),
 #   category.names = c('Outside outside','Outside inside','Inside inside'),
 #   filename = paste0(workdir,'youyun/nti/analysis_files/DIPG_configuration_',format(Sys.time(), "%m%d%H"),'.png'),output = TRUE,
 #   height = 480,width = 480,resolution = 300,compression = "lzw",col=c("#440154ff", '#21908dff', '#fde725ff'),

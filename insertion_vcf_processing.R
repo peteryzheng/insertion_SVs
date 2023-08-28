@@ -5,12 +5,12 @@ library(stringr)
 library(BSgenome)
 library(ggrepel)
 
-
-# reading input ----------
 # local vs UGER
-if (Sys.getenv("LOGNAME") == "youyunzheng") {
+if (Sys.getenv("HOME") %in%  c('/Users/youyun','/Users/youyunzheng')) {
+  # in a local mac, the home directory is usuaully at '/Users/[username]'
   workdir <- "~/Documents/HMS/PhD/beroukhimlab/broad_mount/"
 } else {
+  # in dipg or uger, the home directory is usuaully at '/home/unix/[username]'
   workdir <- "/xchip/beroukhimlab/"
 }
 
@@ -96,9 +96,9 @@ find_surrounding_seq <- function(bases_2_extend, chr, start, cnt, side) {
 # consensus = 'svaba'
 
 # HCMI -------------------------------------
-dataset = "hcmi"
+dataset <- "hcmi"
 # manta
-# sv_files = list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
+# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
 #   pattern = "vcf$", full.names = TRUE
 # )
 # caller <- "manta"
@@ -108,9 +108,11 @@ sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
 )
 caller <- "svaba"
 
+# reading input ----------
 # rbind them into one df
 colnames9 <- c("seqnames", "start", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "Sample")
 
+# read in all the vcf files
 sv.calls <- do.call(rbind, lapply(
   sv_files,
   function(x) {
@@ -131,7 +133,10 @@ sv.calls <- do.call(rbind, lapply(
 
 
 # FILTERS AND REFORMATTING ----------
+
 print(paste0("Using dataset [", dataset, "] and caller [", caller, "]"))
+# filter for only the major chromosomes
+sv.calls <- sv.calls[seqnames %in% c(c(1:22, "X", "Y"), paste0("chr", c(1:22, "X", "Y"))), ]
 # load different references for different datasets
 # filter for minimal qual score, samples with tumor in normal contamination
 # reformat certain VCFs
@@ -144,16 +149,19 @@ if (dataset == "dipg") {
 } else if (dataset == "pcawg") {
   library(BSgenome.Hsapiens.UCSC.hg19)
 } else if (dataset == "hcmi") {
+  # only HCMI uses hg38
   library(BSgenome.Hsapiens.UCSC.hg38)
 }
+
 if (caller %in% c("consensus")) {
   sv.calls$callers <- gsub("CALLER=", "", str_extract(sv.calls$INFO, "CALLER=[SD]*"))
   print(table(sv.calls$callers))
   print(paste0("taking out DS or SD calls which makes up ", round(sum(sv.calls$callers == "DS" | sv.calls$callers == "SD") / nrow(sv.calls), 3), " of the data"))
   sv.calls <- sv.calls[grepl("CALLER=SD|CALLER=DS", INFO)]
 } else if (caller %in% c("manta")) {
+  # processing manta deletion and duplication calls
   dup_del_sv <- sv.calls[grepl("TANDEM|DEL", ALT)]
-  dup_del_sv_2nd <- dup_del_sv
+  dup_del_sv_2nd <- copy(dup_del_sv)
   dup_del_sv[, c("ALT", "ID") := list(ifelse(
     grepl("MantaDEL", ID),
     # for the first breakend, for deletions, the lower genomic breakpoint is the + end
@@ -162,28 +170,32 @@ if (caller %in% c("consensus")) {
     paste0("]", seqnames, ":", gsub("END=", "", str_extract(INFO, "END=[0-9]*")), "]", REF)
   ), paste0(ID, ":1"))]
   # extract the second breakend genomic coordinate for the same set of calls
-  dup_del_sv_2nd$start <- as.numeric(gsub("END=", "", str_extract(dup_del_sv$INFO, "END=[0-9]*")))
-  dup_del_sv[, c("ALT", "ID") := list(ifelse(
+  dup_del_sv_2nd[, REF := as.character(getSeq(
+    Hsapiens, seqnames, as.numeric(gsub("END=", "", str_extract(INFO, "END=[0-9]*"))),
+    as.numeric(gsub("END=", "", str_extract(INFO, "END=[0-9]*")))
+  ))][, c("ALT", "ID") := list(ifelse(
     grepl("MantaDEL", ID),
     # for the second breakend, for deletions, the upper genomic breakpoint is the - end
     # therefore they should be given t[p[ notation
-    paste0("]", seqnames, ":", gsub("END=", "", str_extract(INFO, "END=[0-9]*")), "]", REF),
-    paste0(REF, "[", seqnames, ":", gsub("END=", "", str_extract(INFO, "END=[0-9]*")), "[")
+    paste0("]", seqnames, ":", start, "]", REF),
+    paste0(REF, "[", seqnames, ":", start, "[")
   ), paste0(ID, ":2"))]
+  dup_del_sv_2nd$start <- as.numeric(gsub("END=", "", str_extract(dup_del_sv$INFO, "END=[0-9]*")))
   sv.calls <- rbind(sv.calls[!grepl("TANDEM|DEL", ALT)], dup_del_sv, dup_del_sv_2nd)
 } else {
   # consensus and manta data has no qual scores
   sv.calls <- sv.calls[as.numeric(QUAL) > 15]
 }
 
-# filter for only the major chromosomes
-sv.calls <- sv.calls[seqnames %in% c(c(1:22, "X", "Y"), paste0("chr", c(1:22, "X", "Y"))), ]
-sv.calls[, SV_ID := paste(Sample, seqnames, ID, sep = "__")]
+sv.calls[, breakend_ID := paste(Sample, seqnames, ID, sep = "__")]
 # making sure every breakend will have its pair (both breakends are on chr 1-22)
-sv.calls[, both_end_pass_filter := ifelse(.N == 2, TRUE, FALSE), , by = .(SV_pair_ID = gsub(":[12]*", "", ID), Sample)]
+sv.calls[, both_end_pass_filter := ifelse(.N == 2, TRUE, FALSE), , by = .(SV_pair_ID = gsub(":[0-2]$", "", ID), Sample)]
+print(paste0("Checking if both ends pass filter: ", nrow(sv.calls)))
+print(paste0("Both end pass filter: ", nrow(sv.calls[both_end_pass_filter == TRUE])))
 sv.calls <- sv.calls[both_end_pass_filter == TRUE]
 
 # Extracting info ----------
+
 # extract insertion sequences from the info column
 sv.calls$ins_seq <- gsub("INSERTION=|FORSEQ=|SVINSSEQ=", "", str_extract(sv.calls$INFO, "INSERTION=[ACGT]*|FORSEQ=[ACGT]*|SVINSSEQ=[ACGT]*"))
 sv.calls$ins_len <- nchar(sv.calls$ins_seq)
@@ -220,18 +232,41 @@ if (any(grepl("chr", insertion.sv.calls$seqnames))) {
   insertion.sv.calls[, c("outside_ref", "inside_ref") := list(
     find_surrounding_seq(30 * 5, seqnames, start, cnt_type, "outside"),
     find_surrounding_seq(30 * 5, seqnames, start, cnt_type, "inside")
-  ), by = .(SV_ID)]
+  ), by = .(breakend_ID)]
 } else {
   insertion.sv.calls[, c("outside_ref", "inside_ref") := list(
     find_surrounding_seq(30 * 5, paste0("chr", seqnames), start, cnt_type, "outside"),
     find_surrounding_seq(30 * 5, paste0("chr", seqnames), start, cnt_type, "inside")
-  ), by = .(SV_ID)]
+  ), by = .(breakend_ID)]
 }
 
 # OUTPUTS --------------------
+
 current_time <- format(Sys.time(), "%m%d%H%M")
 insertion.sv.calls[, ins_count := .N, by = Sample]
-# look at the distribution of ACGT
+
+# WRITING OUT FILES FOR NEXT STEPS
+sv.file.path <- paste0(workdir, "youyun/nti/analysis_files/total_SVs_processed_", current_time, ".tsv")
+ins.file.path <- paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_", current_time, ".tsv")
+ins.file.filter.hypermut.path <- paste0(
+  workdir, "youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_",
+  current_time, ".tsv"
+)
+write.table(sv.calls, sv.file.path, sep = "\t", row.names = FALSE)
+write.table(insertion.sv.calls, ins.file.path, sep = "\t", row.names = FALSE)
+write.table(insertion.sv.calls[Sample %in% sv.calls[, .N, Sample][N <= 500, ]$Sample],
+  ins.file.filter.hypermut.path,
+  sep = "\t", row.names = FALSE
+)
+print(paste0(
+  "Total number of samples after hypermutation filter: ",
+  length(unique(insertion.sv.calls[Sample %in% sv.calls[, .N, Sample][N <= 500, ]$Sample]$Sample))
+))
+print(paste0("All SV aggregated here: ", sv.file.path))
+print(paste0("Just SVs with insertions aggregated here: ", ins.file.path))
+print(paste0("Just SVs with insertions without high SV burden samples here: ", ins.file.filter.hypermut.path))
+
+# LOOK AT THE DISTRIBUTION FOR AGCT
 # first getting the reference genome's ACGT distribution
 for (k in c(1:3)) {
   agct_ref <- data.table(do.call("rbind", lapply(paste0("chr", c(1:22, "X", "Y")), function(x) {
@@ -312,7 +347,6 @@ pdf_ins_dens_bin_output_path <- paste0(workdir, "youyun/nti/analysis_files/ins_l
 print(paste0("Saving insertion length density plot by insertion burden bin to ", pdf_ins_dens_bin_output_path))
 ggsave(pdf_ins_dens_bin_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
 
-
 # plot the cumulative density and probability density distribution of insertion lengths
 ggplot(insertion.sv.calls, aes(x = ins_len)) +
   geom_histogram(aes(y = ..count.. / nrow(insertion.sv.calls[ins_len == 1])), binwidth = 1, fill = "#12c3d3", alpha = 0.8) +
@@ -343,23 +377,3 @@ ggplot(
 pdf_output_path <- paste0(workdir, "youyun/nti/analysis_files/SV_burden_", current_time, ".pdf")
 print(paste0("Saving SV burden plot to ", pdf_output_path))
 ggsave(pdf_output_path, plot = last_plot(), device = "pdf")
-
-sv.file.path <- paste0(workdir, "youyun/nti/analysis_files/total_SVs_processed_", current_time, ".tsv")
-ins.file.path <- paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_", current_time, ".tsv")
-ins.file.filter.hypermut.path <- paste0(
-  workdir, "youyun/nti/analysis_files/insertions_SVs_processed_filter_hypermut_",
-  current_time, ".tsv"
-)
-write.table(sv.calls, sv.file.path, sep = "\t", row.names = FALSE)
-write.table(insertion.sv.calls, ins.file.path, sep = "\t", row.names = FALSE)
-write.table(insertion.sv.calls[Sample %in% sv.calls[, .N, Sample][N <= 500, ]$Sample],
-  ins.file.filter.hypermut.path,
-  sep = "\t", row.names = FALSE
-)
-print(paste0(
-  "Total number of samples after filter: ",
-  length(unique(insertion.sv.calls[Sample %in% sv.calls[, .N, Sample][N <= 500, ]$Sample]$Sample))
-))
-print(paste0("All SV aggregated here: ", sv.file.path))
-print(paste0("Just SVs with insertions aggregated here: ", ins.file.path))
-print(paste0("Just SVs with insertions without high SV burden samples here: ", ins.file.filter.hypermut.path))

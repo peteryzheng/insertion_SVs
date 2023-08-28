@@ -22,9 +22,9 @@ SV_file <- "insertions_SVs_processed_062217.tsv"
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051518.tsv'
 # HCMI
 # manta
-SV_file <- "insertions_SVs_processed_07121652.tsv"
+# SV_file <- "insertions_SVs_processed_07262251.tsv"
 # svaba
-# SV_file = "insertions_SVs_processed_07121409.tsv"
+SV_file <- "insertions_SVs_processed_08141739.tsv"
 
 print(paste0("SV file used is this: ", workdir, "youyun/nti/analysis_files/", SV_file))
 
@@ -75,7 +75,7 @@ print(paste0("The kmers are here: ", commands_text_path))
 
 template_task_array <- c(
   "#!/bin/bash",
-  "#$ -l h_rt=08:00:00",
+  "#$ -l h_rt=04:00:00",
   paste0("#$ -t 1-", length(unique(insertion.sv.calls[ins_len <= 30 & ins_len >= 6]$ins_seq))),
   "#$ -pe smp 4 ",
   "#$ -binding linear:4 ",

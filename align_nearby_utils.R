@@ -98,18 +98,18 @@ alignment_sig <- function(alignment_df, kmer) {
   # alignment_df = fread('/Users/youyunzheng/Documents/HMS/PhD/beroukhimlab/broad_mount//youyun/nti/analysis_files/insertions/ins_align_total_02102315/TTTTGTTTAATTTAAATTAAAC/TTTTGTTTAATTTAAATTAAAC_alignment_quantile_out_og.tsv')
   # get the best alignment score (by quantile) for every breakend to get the adjusted p value
   best_alignment <-
-    data.table(melt(alignment_df, id.vars = "SV_ID", variable.name = "j", value.name = "quantile"))[, k_mer := kmer][
+    data.table(melt(alignment_df, id.vars = "breakend_ID", variable.name = "j", value.name = "quantile"))[, k_mer := kmer][
       # setting j to the correct value (column 1 is supposed to be k by k, column 2 is supposed to be k by k+1. etc)
       , .(
         j = as.numeric(gsub("V", "", j)) + nchar(kmer) - 1, quantile, k_mer,
-        # tagging max quantile value per breakend (SV_ID), max quantile in k by j at the breakend
+        # tagging max quantile value per breakend (breakend_ID), max quantile in k by j at the breakend
         max_quantile = ifelse(quantile == max(quantile), TRUE, FALSE)
       ),
-      by = "SV_ID"
+      by = "breakend_ID"
     ][(max_quantile),
       # getting minimum avg and max offset with the max quantile value
       .(j_min = min(j), j_avg = mean(j), j_max = max(j)),
-      by = c("SV_ID", "k_mer", "max_quantile", "quantile")
+      by = c("breakend_ID", "k_mer", "max_quantile", "quantile")
     ]
   # best quantile per SV
   print(summary(best_alignment$quantile))
@@ -124,6 +124,7 @@ alignment_sig <- function(alignment_df, kmer) {
 # given a SV call, generate alignment matricies for the SV call and their respective background
 align_nearby_mc <- function(ins_seq, window, insertion.sv.calls, intermediate_dir, gap_open, gap_epen, mismatch_pen, match_pen) {
   window <- as.numeric(window)
+  # match penalty is the original value, mismatch penalty is the negative of the input value
   mat <- nucleotideSubstitutionMatrix(match = match_pen, mismatch = mismatch_pen, type = "DNA")[c("A", "G", "C", "T", "N"), c("A", "G", "C", "T", "N")]
 
   # creating intermeadiate directories to store all alignment matricies in
@@ -166,15 +167,15 @@ align_nearby_mc <- function(ins_seq, window, insertion.sv.calls, intermediate_di
   # ins_alignment_scores_out_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_rc.tsv'),sep = '\t')
   # ins_alignment_scores_in_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_rc.tsv'),sep = '\t')
 
-  ins_alignment_quantile_out_og <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x) / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_og <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x) / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_out_rc <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x) / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_rc <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x) / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
+  ins_alignment_quantile_out_og <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_in_og <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_out_rc <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_in_rc <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
 
-  ins_alignment_quantile_out_og_max <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_og_max <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_out_rc_max <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
-  ins_alignment_quantile_in_rc_max <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, SV_ID := insertion.sv.calls$SV_ID]
+  ins_alignment_quantile_out_og_max <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_in_og_max <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_out_rc_max <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+  ins_alignment_quantile_in_rc_max <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
 
   write.table(ins_alignment_quantile_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_og.tsv"), sep = "\t", row.names = FALSE)
   write.table(ins_alignment_quantile_in_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_og.tsv"), sep = "\t", row.names = FALSE)
@@ -239,8 +240,8 @@ if (!interactive()) {
   # insertion.sv.calls[,c('outside_ref','inside_ref') := list(
   #   find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'outside'),
   #   find_surrounding_seq(nchar(ins)*window,paste0('chr',seqnames),start,cnt_type,'inside')
-  # ),by = .(SV_ID)]
+  # ),by = .(breakend_ID)]
 
   print(paste0("Aligning the insertion sequence [", ins, "] with a ", window, "X window using all breakends in file [", opt$data, "] and writing to [", intermediate_dir, "]"))
-  system.time(unlist(align_nearby_mc(ins, window, insertion.sv.calls, intermediate_dir, 7, 1, 1, 3)))
+  system.time(unlist(align_nearby_mc(ins, window, insertion.sv.calls, intermediate_dir, gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3)))
 }
