@@ -49,13 +49,13 @@ if (dataset == "DIPG") {
 } else {
   # HCMI proximal
   # manta
-  # insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_07262251.tsv"))
-  # intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0727231254/")
-  # print("Manta")
+  insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_07262251.tsv"))
+  intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0829231703/")
+  print("Manta")
   # svaba
-  insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_08141739.tsv"))
-  intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0814231751/")
-  print("SvABA")
+  # insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/insertions_SVs_processed_08141739.tsv"))
+  # intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_0814231751/")
+  # print("SvABA")
 }
 
 insertion.sv.calls.subset <- insertion.sv.calls[ins_len <= 30 & ins_len >= 6]
@@ -128,13 +128,14 @@ insertion.sv.calls.aligned[, c(
 )
 ]
 
+sig_threshold <- 0.1
 insertion.sv.calls.aligned[
   ,c('outside_ins_match','outside_ins_rc_match','inside_ins_match','inside_ins_rc_match') := 
   list(
-    ifelse(outside_ins_match_quantile_fdr < 0.05,1,0),
-    ifelse(outside_ins_rc_match_quantile_fdr < 0.05,1,0),
-    ifelse(inside_ins_match_quantile_fdr < 0.05,1,0),
-    ifelse(inside_ins_rc_match_quantile_fdr < 0.05,1,0)
+    ifelse(outside_ins_match_quantile_fdr < sig_threshold,1,0),
+    ifelse(outside_ins_rc_match_quantile_fdr < sig_threshold,1,0),
+    ifelse(inside_ins_match_quantile_fdr < sig_threshold,1,0),
+    ifelse(inside_ins_rc_match_quantile_fdr < sig_threshold,1,0)
   )
 ]
 

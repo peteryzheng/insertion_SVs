@@ -1,11 +1,14 @@
 library(data.table)
 
 # local vs UGER
-if (Sys.getenv("LOGNAME") == "youyunzheng") {
+if (Sys.getenv("HOME") %in% c("/Users/youyun", "/Users/youyunzheng")) {
+  # in a local mac, the home directory is usuaully at '/Users/[username]'
   workdir <- "~/Documents/HMS/PhD/beroukhimlab/broad_mount/"
 } else {
+  # in dipg or uger, the home directory is usuaully at '/home/unix/[username]'
   workdir <- "/xchip/beroukhimlab/"
 }
+
 
 intermediate_dir <- paste0(workdir, "/youyun/nti/analysis_files/insertions")
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
@@ -22,9 +25,9 @@ SV_file <- "insertions_SVs_processed_062217.tsv"
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051518.tsv'
 # HCMI
 # manta
-# SV_file <- "insertions_SVs_processed_07262251.tsv"
+SV_file <- "insertions_SVs_processed_07262251.tsv"
 # svaba
-SV_file <- "insertions_SVs_processed_08141739.tsv"
+# SV_file <- "insertions_SVs_processed_08141739.tsv"
 
 print(paste0("SV file used is this: ", workdir, "youyun/nti/analysis_files/", SV_file))
 
@@ -75,7 +78,7 @@ print(paste0("The kmers are here: ", commands_text_path))
 
 template_task_array <- c(
   "#!/bin/bash",
-  "#$ -l h_rt=04:00:00",
+  "#$ -l h_rt=12:00:00",
   paste0("#$ -t 1-", length(unique(insertion.sv.calls[ins_len <= 30 & ins_len >= 6]$ins_seq))),
   "#$ -pe smp 4 ",
   "#$ -binding linear:4 ",
@@ -91,7 +94,7 @@ template_task_array <- c(
   "echo $kmer",
   paste0(
     "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
-    " -w 2 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
+    " -b 100 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
   )
 )
 task_array_path <- paste0(workdir, "youyun/nti/code/outputs/task_array_", format(Sys.time(), "%m%d%y%H%M"), ".sh")
