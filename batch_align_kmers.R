@@ -25,7 +25,7 @@ SV_file <- "insertions_SVs_processed_062217.tsv"
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051518.tsv'
 # HCMI
 # manta
-SV_file <- "insertions_SVs_processed_07262251.tsv"
+SV_file <- "insertions_SVs_processed_09181429.tsv"
 # svaba
 # SV_file <- "insertions_SVs_processed_08141739.tsv"
 
@@ -78,7 +78,7 @@ print(paste0("The kmers are here: ", commands_text_path))
 
 template_task_array <- c(
   "#!/bin/bash",
-  "#$ -l h_rt=12:00:00",
+  "#$ -l h_rt=36:00:00",
   paste0("#$ -t 1-", length(unique(insertion.sv.calls[ins_len <= 30 & ins_len >= 6]$ins_seq))),
   "#$ -pe smp 4 ",
   "#$ -binding linear:4 ",
@@ -94,7 +94,17 @@ template_task_array <- c(
   "echo $kmer",
   paste0(
     "Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
-    " -b 100 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
+    # parameters for how far out the breakpoint to align to
+    " -w 20 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " ",
+    # " -b 100 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
+    # alignment parameters -- for all the penalty values, positive and negative doesnt matter
+    # 33n2 scheme that the MHe project uses
+    # gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3
+    # the default values for bwa mem
+    # https://bio-bwa.sourceforge.net/bwa.shtml
+    # gap_open = 6, gap_epen = 1, mismatch_pen = 4, match_pen = 1
+    # '-g 6 -e 1 -m 4 -t 1'
+    '-g 7 -e 1 -m 1 -t 3'
   )
 )
 task_array_path <- paste0(workdir, "youyun/nti/code/outputs/task_array_", format(Sys.time(), "%m%d%y%H%M"), ".sh")

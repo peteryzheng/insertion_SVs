@@ -126,11 +126,12 @@ align_nearby_mc_window <- function(ins_seq, window, insertion.sv.calls, intermed
   write.table(ins_alignment_scores_in_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_score_in_rc.tsv"), sep = "\t", row.names = FALSE)
 
   # column wise quantile matrix ----------
+  # getting per column best alignment 
   # ins_alignment_scores_out_og <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_og.tsv'),sep = '\t')
   # ins_alignment_scores_in_og <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_og.tsv'),sep = '\t')
   # ins_alignment_scores_out_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_rc.tsv'),sep = '\t')
   # ins_alignment_scores_in_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_rc.tsv'),sep = '\t')
-
+  
   ins_alignment_quantile_out_og <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
   ins_alignment_quantile_in_og <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
   ins_alignment_quantile_out_rc <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
@@ -152,6 +153,7 @@ align_nearby_mc_window <- function(ins_seq, window, insertion.sv.calls, intermed
   write.table(ins_alignment_quantile_in_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_rc.tsv"), sep = "\t", row.names = FALSE)
 
   # row max quantile value calculation ----------
+  # getting per breakend best alignment (controlled by offset)
   # ins_alignment_quantile_out_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t')
   # ins_alignment_quantile_in_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_og.tsv'),sep = '\t')
   # ins_alignment_quantile_out_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_rc.tsv'),sep = '\t')
@@ -257,14 +259,14 @@ if (!interactive()) {
       type = "character", default = "",
       help = "insertion sequence of interest to align to background", metavar = "insertion"
     ),
-    # make_option(c("-w", "--window"),
-    #   type = "numeric", default = "",
-    #   help = "value for window to search around the breakend (window size = N x [insertion length])", metavar = "window"
-    # ),
-    make_option(c("-b", "--bases"),
+    make_option(c("-w", "--window"),
       type = "numeric", default = "",
-      help = "value for base pairs to search around the breakend", metavar = "bases"
+      help = "value for window to search around the breakend (window size = N x [insertion length])", metavar = "window"
     ),
+    # make_option(c("-b", "--bases"),
+    #   type = "numeric", default = "",
+    #   help = "value for base pairs to search around the breakend", metavar = "bases"
+    # ),
     make_option(c("-d", "--data"),
       type = "character", default = "/xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_020716.tsv",
       help = "file path to the total insertion SV file (processed using insertion_vcf_processing.R)", metavar = "data"
@@ -272,6 +274,29 @@ if (!interactive()) {
     make_option(c("-o", "--output"),
       type = "character", default = "",
       help = "file path to write intermediate results to", metavar = "output"
+    ),
+    # aligner paramters
+    # for all the penalty values, positive and negative doesnt matter
+    # 33n2 scheme that the MHe project uses
+    # gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3
+    # the default values for bwa mem
+    # https://bio-bwa.sourceforge.net/bwa.shtml
+    # gap_open = 6, gap_epen = 1, mismatch_pen = 4, match_pen = 1
+    make_option(c("-g", "--gapopen"),
+      type = "numeric", default = 7,
+      help = "gap open penalty for alignment", metavar = "gap_open"
+    ),
+    make_option(c("-e", "--gapepen"),
+      type = "numeric", default = 1,
+      help = "gap extension penalty for alignment", metavar = "gap_epen"
+    ),
+    make_option(c("-m", "--mismatchpen"),
+      type = "numeric", default = 1,
+      help = "mismatch penalty for alignment", metavar = "mismatch_pen"
+    ),
+    make_option(c("-t", "--matchpen"),
+      type = "numeric", default = 3,
+      help = "match penalty for alignment", metavar = "match_pen"
     )
   )
 
@@ -279,13 +304,23 @@ if (!interactive()) {
   opt <- parse_args(opt_parser)
 
   ins <- opt$ins
-  # window <- as.numeric(opt$window)
-  bases <- as.numeric(opt$bases)
+  window <- as.numeric(opt$window)
+  # bases <- as.numeric(opt$bases)
   insertion.sv.calls <- fread(opt$data)
   intermediate_dir <- opt$output
+  # aligner paramters
+  gapopen <- as.numeric(opt$gapopen)
+  gapepen <- as.numeric(opt$gapepen)
+  mismatchpen <- as.numeric(opt$mismatchpen)
+  matchpen <- as.numeric(opt$matchpen)
 
-  if (!is.numeric(bases) || is.null(ins) || nrow(insertion.sv.calls) == 0 || intermediate_dir == "") {
+  # error checking for inputs
+  if (!is.numeric(window) || is.null(ins) || nrow(insertion.sv.calls) == 0 || intermediate_dir == "") {
     print("check inputs!!")
+  }
+  # error checking for alignment parameters
+  if (!is.numeric(gapopen) || !is.numeric(gapepen) || !is.numeric(mismatchpen) || !is.numeric(matchpen)) {
+    print("check alignment parameters!!")
   }
 
   # insertion.sv.calls.subset = insertion.sv.calls[c(1:1000)]
@@ -298,9 +333,11 @@ if (!interactive()) {
   # system.time(unlist(align_nearby_mc_window(ins, window, insertion.sv.calls, intermediate_dir, gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3)))
 
   # using bases instead of windows
-  print(paste0("Aligning the insertion sequence [", ins, "] with a ", bases, "bp window using all breakends in file [", opt$data, "] and writing to [", intermediate_dir, "]"))
-  system.time(unlist(align_nearby_mc_bp(ins, bases, insertion.sv.calls, intermediate_dir,
-    # for all the penalty values, positive and negative doesnt matter
-    gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3
+  # total_bases = bases
+  total_bases = window * nchar(ins)
+  print(paste0("Aligning the insertion sequence [", ins, "] with a ", total_bases, "bp window using all breakends in file [", opt$data, "] and writing to [", intermediate_dir, "]"))
+  system.time(unlist(align_nearby_mc_bp(ins, total_bases, insertion.sv.calls, intermediate_dir,
+      # aligmnent parameters from make_option inputs
+      gap_open = gapopen, gap_epen = gapepen, mismatch_pen = mismatchpen, match_pen = matchpen
   )))
 }
