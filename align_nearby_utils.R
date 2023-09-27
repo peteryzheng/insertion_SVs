@@ -340,4 +340,5 @@ if (!interactive()) {
       # aligmnent parameters from make_option inputs
       gap_open = gapopen, gap_epen = gapepen, mismatch_pen = mismatchpen, match_pen = matchpen
   )))
+  print('Done!')
 }

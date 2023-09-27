@@ -10,15 +10,18 @@ if (Sys.getenv("HOME") %in% c("/Users/youyun", "/Users/youyunzheng")) {
 }
 
 
+current_time = format(Sys.time(), "%m%d%y%H%M")
 intermediate_dir <- paste0(workdir, "/youyun/nti/analysis_files/insertions")
 # create intermediate directory to store all intermediate alignment results for RAM efficiency
-intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_", format(Sys.time(), "%m%d%y%H%M"))
+intermediate_dir <- paste0(intermediate_dir, "/ins_align_total_", current_time)
+intermediate_job_output_dir = paste0(intermediate_dir,'/outputs')
 print(paste0("Output directory here: ", intermediate_dir))
 # intermediate_dir = paste0(intermediate_dir,'/ins_align_total_02102315')
 dir.create(intermediate_dir, showWarnings = TRUE)
+dir.create(intermediate_job_output_dir, showWarnings = TRUE)
 
 # DIPG
-SV_file <- "insertions_SVs_processed_062217.tsv"
+# SV_file <- "insertions_SVs_processed_062217.tsv"
 # SV_file = 'insertions_SVs_processed_filter_hypermut_051611.tsv'
 # PCAWG -- /xchip/beroukhimlab/youyun/nti/analysis_files/insertions_SVs_processed_030900.tsv
 # SV_file = 'insertions_SVs_processed_051518.tsv'
@@ -28,9 +31,7 @@ SV_file <- "insertions_SVs_processed_062217.tsv"
 SV_file <- "insertions_SVs_processed_09181429.tsv"
 # svaba
 # SV_file <- "insertions_SVs_processed_08141739.tsv"
-
 print(paste0("SV file used is this: ", workdir, "youyun/nti/analysis_files/", SV_file))
-
 insertion.sv.calls <- fread(paste0(workdir, "youyun/nti/analysis_files/", SV_file))
 
 # directly submit jobs through r
@@ -72,7 +73,7 @@ commands_text <- data.table(do.call("rbind", lapply(unique(insertion.sv.calls[in
   x
 })))
 
-commands_text_path <- paste0(workdir, "youyun/nti/code/outputs/kmers_", format(Sys.time(), "%m%d%y%H%M"), ".txt")
+commands_text_path <- paste0(workdir, "youyun/nti/code/outputs/kmers_", current_time, ".txt")
 write.table(commands_text, commands_text_path, sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
 print(paste0("The kmers are here: ", commands_text_path))
 
@@ -83,9 +84,9 @@ template_task_array <- c(
   "#$ -pe smp 4 ",
   "#$ -binding linear:4 ",
   "#$ -l h_vmem=4G",
-  "#$ -o '/xchip/beroukhimlab/youyun/nti/code/outputs' ",
-  "#$ -e '/xchip/beroukhimlab/youyun/nti/code/outputs' ",
-  paste0("#$ -N ins_homeology_", format(Sys.time(), "%m%d%y%H%M")),
+  paste0("#$ -o '",intermediate_job_output_dir,"' "),
+  paste0("#$ -e '",intermediate_job_output_dir,"' "),
+  paste0("#$ -N ins_homeology_", current_time),
   "",
   "source /broad/software/scripts/useuse",
   "use R-4.0",
@@ -107,7 +108,7 @@ template_task_array <- c(
     '-g 7 -e 1 -m 1 -t 3'
   )
 )
-task_array_path <- paste0(workdir, "youyun/nti/code/outputs/task_array_", format(Sys.time(), "%m%d%y%H%M"), ".sh")
+task_array_path <- paste0(workdir, "youyun/nti/code/outputs/task_array_", current_time, ".sh")
 writeLines(text = template_task_array, task_array_path, sep = "\n", useBytes = FALSE)
 print(paste0("The task array script is here: ", task_array_path))
 # system('use UGER')

@@ -225,6 +225,34 @@ write.table(insertion_sv_calls_aligned_paired, paste0(workdir, "/youyun/nti/anal
   sep = "\t", row.names = FALSE
 )
 
+# high confidence combination calling ---------------------------------------------------------------------------------------
+# I want to make sure that every row, breakend1 only has one match and breakend2 also only has one match
+insertion_sv_calls_aligned_paired[
+  , c("breakend1_match", "breakend2_match") :=
+    list(
+      sum(as.numeric(c(outside_ins_match_breakend1, outside_ins_rc_match_breakend1, inside_ins_match_breakend1, inside_ins_rc_match_breakend1))),
+      sum(as.numeric(c(outside_ins_match_breakend2, outside_ins_rc_match_breakend2, inside_ins_match_breakend2, inside_ins_rc_match_breakend2)))
+    ),
+  by = .(SV_ID)
+]
+table(insertion_sv_calls_aligned_paired$breakend1_match)
+table(insertion_sv_calls_aligned_paired$breakend2_match)
+high_conf_insertion_sv_calls_aligned_paired <- insertion_sv_calls_aligned_paired[
+  (outside_outside == 1 | outside_outside_rc == 1 | outside_inside == 1 | outside_inside_rc == 1 |
+    outside_rc_outside_rc == 1 | outside_rc_inside == 1 | outside_rc_inside_rc == 1 |
+    inside_inside == 1 | inside_inside_rc == 1 | inside_rc_inside_rc == 1) &
+    (breakend1_match == 1 & breakend2_match == 1),
+]
+print(high_conf_insertion_sv_calls_aligned_paired[
+  , .(
+    SV_ID, Sample, cnt_type_breakend1, cnt_type_breakend2, ins_seq_breakend1, ins_seq_breakend2,
+    breakend1_match, breakend2_match,
+    outside_outside, outside_outside_rc, outside_inside, outside_inside_rc,
+    outside_rc_outside_rc, outside_rc_inside, outside_rc_inside_rc,
+    inside_inside, inside_inside_rc, inside_rc_inside_rc
+  )
+])
+
 # DEPRECATED CODE --------------------------------------------------------------------------------------------
 # function to find convolution p value cut off ----------
 # convolve_sig <- function(ins_seq, intermediate_dir, side1, side2) {
