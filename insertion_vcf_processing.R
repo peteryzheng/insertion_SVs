@@ -98,15 +98,15 @@ find_surrounding_seq <- function(bases_2_extend, chr, start, cnt, side) {
 # HCMI -------------------------------------
 dataset <- "hcmi"
 # manta
-sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
-  pattern = "vcf$", full.names = TRUE
-)
-caller <- "manta"
-# svaba
-# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
 #   pattern = "vcf$", full.names = TRUE
 # )
-# caller <- "svaba"
+# caller <- "manta"
+# svaba
+sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+  pattern = "vcf$", full.names = TRUE
+)
+caller <- "svaba"
 
 # reading input ----------
 # rbind them into one df
