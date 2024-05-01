@@ -70,7 +70,7 @@ match.results <- data.table(t(apply(insertion.sv.calls.subset, 1, function(x) {
   # x = as.character(insertion.sv.calls.subset[2,])
   ins_seq <- x[which(colnames(insertion.sv.calls) == "ins_seq")]
   current_breakend_ID <- x[which(colnames(insertion.sv.calls) == "breakend_ID")]
-  intermediate_ins_dir <- paste0(intermediate_dir, "/", ins_seq)
+  intermediate_ins_dir <- paste0(intermediate_dir, "/alignment_files/", ins_seq)
 
   out_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"))
   in_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"))

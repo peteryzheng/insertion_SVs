@@ -98,15 +98,22 @@ find_surrounding_seq <- function(bases_2_extend, chr, start, cnt, side) {
 # HCMI -------------------------------------
 dataset <- "hcmi"
 # manta
-# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
-#   pattern = "vcf$", full.names = TRUE
-# )
-# caller <- "manta"
-# svaba
-sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
   pattern = "vcf$", full.names = TRUE
 )
-caller <- "svaba"
+caller <- "manta"
+# svaba
+# sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/svaba"),
+#   pattern = "vcf$", full.names = TRUE
+# )
+# caller <- "svaba"
+
+dataset <- "hcmi_cancer_models"
+# manta
+sv_files <- list.files(paste0(workdir, "youyun/nti/data/HCMI/manta"),
+  pattern = "-85..final.SV.WGS.vcf$", full.names = TRUE
+)
+caller <- "manta"
 
 # reading input ----------
 # rbind them into one df
@@ -135,8 +142,7 @@ sv.calls <- do.call(rbind, lapply(
 # FILTERS AND REFORMATTING ----------
 
 print(paste0("Using dataset [", dataset, "] and caller [", caller, "]"))
-# filter for only the major chromosomes
-sv.calls <- sv.calls[seqnames %in% c(c(1:22, "X", "Y"), paste0("chr", c(1:22, "X", "Y"))), ]
+print(paste0('Total number of breakends: ',nrow(sv.calls)))
 # load different references for different datasets
 # filter for minimal qual score, samples with tumor in normal contamination
 # reformat certain VCFs
@@ -148,10 +154,22 @@ if (dataset == "dipg") {
   library(BSgenome.Hsapiens.UCSC.hg19)
 } else if (dataset == "pcawg") {
   library(BSgenome.Hsapiens.UCSC.hg19)
-} else if (dataset == "hcmi") {
+} else if (grepl("hcmi",dataset)) {
   # only HCMI uses hg38
   library(BSgenome.Hsapiens.UCSC.hg38)
 }
+print(head(sort(table(sv.calls[
+  !seqnames %in% c(c(1:22, "X", "Y"), paste0("chr", c(1:22, "X", "Y"))) &
+  !grepl('decoy|random', seqnames), 
+]$seqnames), decreasing = TRUE)))
+# filter for only the major chromosomes
+sv.calls <- sv.calls[seqnames %in% c(c(1:22, "X", "Y"), paste0("chr", c(1:22, "X", "Y"))), ]
+print(paste0('Total number of breakends after filtering for chr 1-22,X,Y,M: ',nrow(sv.calls)))
+# filter for only chromosomes in the hg38 assembly in R
+# sv.calls = sv.calls[
+#   seqnames %in% c(names(Hsapiens@single_sequences),gsub('^chr','',names(Hsapiens@single_sequences)))
+# ]
+# print(paste0('Total number of breakends after filtering for all chromosomes in hg38: ',nrow(sv.calls)))
 
 if (caller %in% c("consensus")) {
   sv.calls$callers <- gsub("CALLER=", "", str_extract(sv.calls$INFO, "CALLER=[SD]*"))
@@ -160,7 +178,11 @@ if (caller %in% c("consensus")) {
   sv.calls <- sv.calls[grepl("CALLER=SD|CALLER=DS", INFO)]
 } else if (caller %in% c("manta")) {
   # processing manta deletion and duplication calls
-  dup_del_sv <- sv.calls[grepl("TANDEM|DEL", ALT)]
+  # use ID column instead of alt column bc some deletion calls, the alt column doesn't have the mantaDEL tag
+  # manta output contains deletions > 50bp that are not annotated with <DEL> in the ALT column 
+  # so ID column is best 
+  # sv.calls[grepl('DEL',ID) & ALT != '<DEL>',]
+  dup_del_sv <- sv.calls[grepl("TANDEM|DEL", ID)]
   dup_del_sv_2nd <- copy(dup_del_sv)
   dup_del_sv[, c("ALT", "ID") := list(ifelse(
     grepl("MantaDEL", ID),
@@ -190,6 +212,7 @@ if (caller %in% c("consensus")) {
 sv.calls[, breakend_ID := paste(Sample, seqnames, ID, sep = "__")]
 # making sure every breakend will have its pair (both breakends are on chr 1-22)
 sv.calls[, both_end_pass_filter := ifelse(.N == 2, TRUE, FALSE), , by = .(SV_pair_ID = gsub(":[0-2]$", "", ID), Sample)]
+sv.calls[, breakend_num_per_sv_ID := .N, , by = .(SV_pair_ID = gsub(":[0-2]$", "", ID), Sample)]
 print(paste0("Checking if both ends pass filter: ", nrow(sv.calls)))
 print(paste0("Both end pass filter: ", nrow(sv.calls[both_end_pass_filter == TRUE])))
 sv.calls <- sv.calls[both_end_pass_filter == TRUE]
