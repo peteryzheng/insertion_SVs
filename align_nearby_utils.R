@@ -119,10 +119,10 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
   write.table(ins_alignment_quantile_out_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_rc.tsv"), sep = "\t", row.names = FALSE)
   write.table(ins_alignment_quantile_in_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_rc.tsv"), sep = "\t", row.names = FALSE)
 
-  write.table(ins_alignment_quantile_out_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_og.tsv"), sep = "\t", row.names = FALSE)
-  write.table(ins_alignment_quantile_in_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_og.tsv"), sep = "\t", row.names = FALSE)
-  write.table(ins_alignment_quantile_out_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_rc.tsv"), sep = "\t", row.names = FALSE)
-  write.table(ins_alignment_quantile_in_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_rc.tsv"), sep = "\t", row.names = FALSE)
+  # write.table(ins_alignment_quantile_out_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_og.tsv"), sep = "\t", row.names = FALSE)
+  # write.table(ins_alignment_quantile_in_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_og.tsv"), sep = "\t", row.names = FALSE)
+  # write.table(ins_alignment_quantile_out_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_rc.tsv"), sep = "\t", row.names = FALSE)
+  # write.table(ins_alignment_quantile_in_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_rc.tsv"), sep = "\t", row.names = FALSE)
 
   # row max quantile value calculation ----------
   # ins_alignment_quantile_out_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t')
