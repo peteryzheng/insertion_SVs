@@ -19,6 +19,14 @@ if(!interactive()) {
         make_option(c("-o", "--outputdir"),
             type = "character",
             help = "Output directory to use.", metavar = "outputdir"
+        ),
+        make_option(c("-n", "--downsamplenum"),
+            type = "numeric", default = 4000,
+            help = "number of breakends to downsample to", metavar = "downsample_num"
+        ),
+        make_option(c("-s", "--seed"),
+            type = "numeric", default = 55555,
+            help = "seed for random number generator", metavar = "seed"
         )
     )
 
@@ -27,9 +35,11 @@ if(!interactive()) {
 
     alignparam = opt$alignparam
     outputdir = opt$outputdir
+    downsample_num = opt$downsamplenum
+    seed = opt$seed
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
-    source('align_and_config_call_helper.R')
+    source('helper_align_and_config.R')
 
     if (! alignparam %in% c("mhe", "default_bwa")) {
         stop("Invalid alignment parameter option.")
@@ -42,5 +52,8 @@ if(!interactive()) {
     create_folder_structure(outputdir)
     SV_file = find_vcf_file(outputdir)
     kmer_file = write_kmer_file(outputdir, SV_file)
-    generate_qsub_script(outputdir, alignparam, kmer_file, SV_file, 'task_array')
+    generate_qsub_script(
+        outputdir, alignparam, kmer_file, SV_file, 
+        'task_array', downsample_num, seed
+    )
 }

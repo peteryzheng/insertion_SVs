@@ -114,7 +114,7 @@ check_task_array_output = function(intermediate_dir, task_array_number, kmer_tas
 
 # =================================== batch align shared functions ===================================
 
-generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file, script_name){
+generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file, script_name, downsample_num, seed){
     current_time <- gsub('.*_|/$','',intermediate_dir)
     intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
     intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
@@ -158,7 +158,7 @@ generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file
             # parameters for how far out the breakpoint to align to
             " -w 20 -d ", SV_file, " -o ", intermediate_job_output_dir,'/alignment_files/', " ",
             # " -b 100 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
-            align_str
+            align_str,' -n ', downsample_num, ' -s ', seed
         )
     )
     task_array_path <- paste0(intermediate_job_input_dir, script_name, "_", current_time, ".sh")

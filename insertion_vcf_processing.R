@@ -41,7 +41,7 @@ if(!interactive()) {
     print(paste0("Using dataset [", dataset, "] and caller [", caller, "]"))
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
-    source('helper_functions.R')
+    source('helper_vcf_processing.R')
     suppressPackageStartupMessages(library(data.table))
     suppressPackageStartupMessages(library(ggplot2))
     suppressPackageStartupMessages(library(RColorBrewer))

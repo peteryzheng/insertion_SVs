@@ -81,7 +81,7 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
         out_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"))
         in_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"))
 
-      # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
+        # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
         out.ins.match <- c(
             out_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
             out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min,
@@ -173,7 +173,7 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
     return(insertion.sv.calls.aligned)
 }
 
-double_end_significance = function(intermediate_dir, insertion.sv.calls.aligned, dataset, current_time){
+call_combination_configuration = function(intermediate_dir, insertion.sv.calls.aligned, dataset, current_time){
     intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
     intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
     # generating the dcast data for combination information -----------------------------------------------------------------------

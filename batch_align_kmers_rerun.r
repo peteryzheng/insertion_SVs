@@ -21,6 +21,14 @@ if(!interactive()) {
             type = "character",
             help = "Output directory to use.", metavar = "outputdir"
         ),
+        make_option(c("-n", "--downsamplenum"),
+            type = "numeric", default = 4000,
+            help = "number of breakends to downsample to", metavar = "downsample_num"
+        ),
+        make_option(c("-s", "--seed"),
+            type = "numeric", default = 55555,
+            help = "seed for random number generator", metavar = "seed"
+        ),
         make_option(c("-t", "--task_number"),
             type = "integer",
             help = "Task array number to check.", metavar = "task_number"
@@ -36,11 +44,13 @@ if(!interactive()) {
 
     alignparam = opt$alignparam
     outputdir = opt$outputdir
+    downsample_num = opt$downsamplenum
+    seed = opt$seed
     task_number = opt$task_number
     kmer_file = opt$kmer_file
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
-    source('align_and_config_call_helper.R') 
+    source('helper_align_and_config.R') 
 
     if (! alignparam %in% c("mhe", "default_bwa")) {
         stop("Invalid alignment parameter option.")
@@ -56,5 +66,8 @@ if(!interactive()) {
     # use task array output to check if a job finished or not. 
     # then generate a new kmer file to rerun the failed jobs
     new_kmer_file = check_task_array_output(outputdir, task_number, kmer_taskid)
-    generate_qsub_script(outputdir, alignparam, new_kmer_file, SV_file,'task_array_rerun')
+    generate_qsub_script(
+        outputdir, alignparam, new_kmer_file, SV_file,
+        'task_array_rerun', downsample_num, seed
+    )
 }
