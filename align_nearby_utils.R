@@ -114,10 +114,10 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
     ins_alignment_quantile_out_rc_max <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
     ins_alignment_quantile_in_rc_max <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
 
-    write.table(ins_alignment_quantile_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_og.tsv"), sep = "\t", row.names = FALSE)
-    write.table(ins_alignment_quantile_in_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_og.tsv"), sep = "\t", row.names = FALSE)
-    write.table(ins_alignment_quantile_out_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_rc.tsv"), sep = "\t", row.names = FALSE)
-    write.table(ins_alignment_quantile_in_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_rc.tsv"), sep = "\t", row.names = FALSE)
+    # write.table(ins_alignment_quantile_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_og.tsv"), sep = "\t", row.names = FALSE)
+    # write.table(ins_alignment_quantile_in_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_og.tsv"), sep = "\t", row.names = FALSE)
+    # write.table(ins_alignment_quantile_out_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_rc.tsv"), sep = "\t", row.names = FALSE)
+    # write.table(ins_alignment_quantile_in_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_rc.tsv"), sep = "\t", row.names = FALSE)
 
     # write.table(ins_alignment_quantile_out_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_og.tsv"), sep = "\t", row.names = FALSE)
     # write.table(ins_alignment_quantile_in_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_og.tsv"), sep = "\t", row.names = FALSE)
@@ -213,6 +213,10 @@ if (!interactive()) {
     downsample_num <- as.numeric(opt$downsamplenum)
     seed <- as.numeric(opt$seed)
 
+    if(intermediate_dir == '.'){
+        intermediate_dir = getwd()
+    }
+
     set.seed(seed)
     if(nrow(insertion.sv.calls) > downsample_num){
         background_indices = sample(1:nrow(insertion.sv.calls), downsample_num)
@@ -222,7 +226,9 @@ if (!interactive()) {
                 background_indices,
                 # real insertion SVs
                 which(insertion.sv.calls$ins_seq == ins)
-            ), breakend_ID := paste0(
+            ), 
+        ][
+          ,breakend_ID := paste0(
                 breakend_ID, c(
                   # give a tag to the background breakend IDs
                   paste0('_background_',c(1:downsample_num)),

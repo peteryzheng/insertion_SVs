@@ -114,7 +114,7 @@ check_task_array_output = function(intermediate_dir, task_array_number, kmer_tas
 
 # =================================== batch align shared functions ===================================
 
-generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file, script_name, downsample_num, seed){
+generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file, script_name, downsample_num, seed, time){
     current_time <- gsub('.*_|/$','',intermediate_dir)
     intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
     intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
@@ -128,7 +128,7 @@ generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file
         # DEFAULT VALUE OF BWA-MEM
         # https://bio-bwa.sourceforge.net/bwa.shtml
         # gap_open = 6, gap_epen = 1, mismatch_pen = 4, match_pen = 1
-        align_str = '-g 6 -e 1 -m 2 -t 1'
+        align_str = '-g 6 -e 1 -m 4 -t 1'
     }
     # INCREASEING THE MATCH REWARD TO HOPEFULLY GET HIGHER TEMPLATE FIDELITY
     # gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 9
@@ -136,7 +136,7 @@ generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file
 
     template_task_array <- c(
         "#!/bin/bash",
-        "#$ -l h_rt=36:00:00",
+        paste0("#$ -l h_rt=",time,":00:00"),
         paste0("#$ -t 1-", nrow(fread(kmer_file, header = FALSE))),
         "#$ -pe smp 4 ",
         "#$ -binding linear:4 ",
@@ -166,6 +166,45 @@ generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file
     print(paste0("The task array script is here: ", task_array_path))
     # system('use UGER')
     print(paste0("qsub ", task_array_path))
+}
+
+generate_terra_file = function(intermediate_dir, alignparam, kmer_file, downsample_num, seed){
+    current_time <- gsub('.*_|/$','',intermediate_dir)
+    intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
+    intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
+    
+    kmers = fread(kmer_file, header = FALSE)
+    colnames(kmers) = c('entity:sample_id')
+    
+    # write the terra sample table -----------------------------------------------------------------------------------------------------------
+    # ALIGNMENT PARAMETERS -- for all the penalty values, positive and negative doesnt matter
+    if(alignparam == "mhe"){
+        # 33n2 SCHEME THAT THE MHe project uses
+        # gap_open = 7, gap_epen = 1, mismatch_pen = 1, match_pen = 3
+        align_str = "-g 7 -e 1 -m 1 -t 3"
+        kmers$gap_open = 7
+        kmers$gap_epen = 1
+        kmers$mismatch_pen = 1
+        kmers$match_pen = 3
+    }else if(alignparam == "default_bwa"){
+        # DEFAULT VALUE OF BWA-MEM
+        # https://bio-bwa.sourceforge.net/bwa.shtml
+        # gap_open = 6, gap_epen = 1, mismatch_pen = 4, match_pen = 1
+        align_str = '-g 6 -e 1 -m 4 -t 1'
+        kmers$gap_open = 6
+        kmers$gap_epen = 1
+        kmers$mismatch_pen = 4
+        kmers$match_pen = 1
+    }
+
+    kmers$downsample_num = downsample_num
+    kmers$seed = seed
+
+    terra_file = paste0(intermediate_job_input_dir, "terra_sample_table_", current_time, ".tsv")
+    write.table(kmers, terra_file, sep = "\t", quote = FALSE, row.names = FALSE)
+    print(paste0("The terra sample table is here: ", terra_file))
+    
+
 }
 
 # =================================== batch align and config calling shared functions ===================================

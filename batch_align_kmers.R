@@ -27,7 +27,12 @@ if(!interactive()) {
         make_option(c("-s", "--seed"),
             type = "numeric", default = 55555,
             help = "seed for random number generator", metavar = "seed"
+        ),
+        make_option(c('-t','--time'),
+            type = 'numeric', default = 36,
+            help = 'Time (hours) to run each task', metavar = 'time'
         )
+
     )
 
     opt_parser = OptionParser(option_list = option_list)
@@ -37,6 +42,7 @@ if(!interactive()) {
     outputdir = opt$outputdir
     downsample_num = opt$downsamplenum
     seed = opt$seed
+    time = opt$time
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
     source('helper_align_and_config.R')
@@ -49,11 +55,19 @@ if(!interactive()) {
         stop("Output directory is required.")
     }
 
-    create_folder_structure(outputdir)
-    SV_file = find_vcf_file(outputdir)
-    kmer_file = write_kmer_file(outputdir, SV_file)
-    generate_qsub_script(
-        outputdir, alignparam, kmer_file, SV_file, 
-        'task_array', downsample_num, seed
+    # create_folder_structure(outputdir)
+    # SV_file = find_vcf_file(outputdir)
+    # kmer_file = write_kmer_file(outputdir, SV_file)
+    # generate_qsub_script(
+    #     outputdir, alignparam, kmer_file, SV_file, 
+    #     'task_array', downsample_num, seed, time
+    # )
+    kmer_file = gsub(
+        '/xchip/beroukhimlab/',workdir,
+        '/xchip/beroukhimlab/youyun/nti/analysis_files/insertions/ins_align_total_0531241815/inputs/kmers_0531241815.txt'
+    )
+    generate_terra_file(
+        outputdir, alignparam, kmer_file, 
+        downsample_num, seed
     )
 }

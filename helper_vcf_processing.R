@@ -512,18 +512,18 @@ visualizing_kmers = function(insertion.sv.calls,current_time, outputdir){
 ins_length_distribution = function(insertion.sv.calls, sv.calls, current_time, outputdir){
     # bin the samples by how many insertions they have, and make different facets for each bin
     # I want to make 9 bins of equal sample size from the smaller to largest number of insertions any given sample can have in our cohort
-    quantiles <- quantile(unique(insertion.sv.calls[, .(ins_count), by = .(Sample)])$ins_count, seq(0, 1, 0.1))
-    insertion.sv.calls[, ins_count_bin := cut(ins_count, breaks = quantiles, include.lowest = TRUE)]
-    ggplot(insertion.sv.calls, aes(x = log10(ins_len))) +
-        geom_density(aes(fill = Sample), color = "gray", alpha = 0.05) +
-        labs(x = "Log10 Insertion Length", y = "Density") +
-        ggtitle(paste0("Insertion Lengths in ", dataset, " Called by ", caller)) +
-        theme(legend.position = "none") +
-        coord_cartesian(xlim = c(0, 2)) +
-        facet_wrap(~ins_count_bin, scales = "free", ncol = 3)
-    pdf_ins_dens_bin_output_path <- paste0(outputdir, "/ins_len_density_per_ins_burden_bin_", current_time, ".pdf")
-    print(paste0("Saving insertion length density plot by insertion burden bin to ", pdf_ins_dens_bin_output_path))
-    ggsave(pdf_ins_dens_bin_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
+    # quantiles <- quantile(unique(insertion.sv.calls[, .(ins_count), by = .(Sample)])$ins_count, seq(0, 1, 0.1))
+    # insertion.sv.calls[, ins_count_bin := cut(ins_count, breaks = quantiles, include.lowest = TRUE)]
+    # ggplot(insertion.sv.calls, aes(x = log10(ins_len))) +
+    #     geom_density(aes(fill = Sample), color = "gray", alpha = 0.05) +
+    #     labs(x = "Log10 Insertion Length", y = "Density") +
+    #     ggtitle(paste0("Insertion Lengths in ", dataset, " Called by ", caller)) +
+    #     theme(legend.position = "none") +
+    #     coord_cartesian(xlim = c(0, 2)) +
+    #     facet_wrap(~ins_count_bin, scales = "free", ncol = 3)
+    # pdf_ins_dens_bin_output_path <- paste0(outputdir, "/ins_len_density_per_ins_burden_bin_", current_time, ".pdf")
+    # print(paste0("Saving insertion length density plot by insertion burden bin to ", pdf_ins_dens_bin_output_path))
+    # ggsave(pdf_ins_dens_bin_output_path, plot = last_plot(), width = 10, height = 10, device = "pdf")
 
     # plot the cumulative density and probability density distribution of insertion lengths
     ggplot(insertion.sv.calls, aes(x = ins_len)) +

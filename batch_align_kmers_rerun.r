@@ -36,6 +36,10 @@ if(!interactive()) {
         make_option(c("-k", "--kmer_file"),
             type = "character",
             help = "Latest kmer file to check.", metavar = "kmer_file"
+        ),
+        make_option(c('-t','--time'),
+            type = 'numeric', default = 72,
+            help = 'Time (hours) to run each task', metavar = 'time'
         )
     )
 
@@ -48,6 +52,7 @@ if(!interactive()) {
     seed = opt$seed
     task_number = opt$task_number
     kmer_file = opt$kmer_file
+    time = opt$time
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
     source('helper_align_and_config.R') 
@@ -68,6 +73,6 @@ if(!interactive()) {
     new_kmer_file = check_task_array_output(outputdir, task_number, kmer_taskid)
     generate_qsub_script(
         outputdir, alignparam, new_kmer_file, SV_file,
-        'task_array_rerun', downsample_num, seed
+        'task_array_rerun', downsample_num, seed, time
     )
 }
