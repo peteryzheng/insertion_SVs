@@ -55,16 +55,12 @@ if(!interactive()) {
         stop("Output directory is required.")
     }
 
-    # create_folder_structure(outputdir)
-    # SV_file = find_vcf_file(outputdir)
-    # kmer_file = write_kmer_file(outputdir, SV_file)
-    # generate_qsub_script(
-    #     outputdir, alignparam, kmer_file, SV_file, 
-    #     'task_array', downsample_num, seed, time
-    # )
-    kmer_file = gsub(
-        '/xchip/beroukhimlab/',workdir,
-        '/xchip/beroukhimlab/youyun/nti/analysis_files/insertions/ins_align_total_0531241815/inputs/kmers_0531241815.txt'
+    create_folder_structure(outputdir)
+    SV_file = find_vcf_file(outputdir)
+    kmer_file = write_kmer_file(outputdir, SV_file)
+    generate_qsub_script(
+        outputdir, alignparam, kmer_file, SV_file, 
+        'task_array', downsample_num, seed, time
     )
     generate_terra_file(
         outputdir, alignparam, kmer_file, 

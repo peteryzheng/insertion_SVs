@@ -84,23 +84,19 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
         # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
         out.ins.match <- c(
             out_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min,
-            ifelse(current_breakend_ID %in% out_og_breakend_results[(significance)]$breakend_ID, 1, 0)
+            out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
         )
         in.ins.match <- c(
             in_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            in_og_breakend_results[breakend_ID == current_breakend_ID]$j_min,
-            ifelse(current_breakend_ID %in% in_og_breakend_results[(significance)]$breakend_ID, 1, 0)
+            in_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
         )
         out.ins.rc.match <- c(
             out_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            out_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min,
-            ifelse(current_breakend_ID %in% out_rc_breakend_results[(significance)]$breakend_ID, 1, 0)
+            out_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
         )
         in.ins.rc.match <- c(
             in_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            in_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min,
-            ifelse(current_breakend_ID %in% in_rc_breakend_results[(significance)]$breakend_ID, 1, 0)
+            in_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
         )
 
         return(c(current_breakend_ID, out.ins.match, in.ins.match, out.ins.rc.match, in.ins.rc.match))
@@ -108,25 +104,15 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
 
     # merge the result back into the original sv file -----------------------------------------------------------------------
     colnames(match.results) <- c(
-        "breakend_ID", "outside_ins_match_quantile", "outside_ins_match_j_max_quantile", "outside_ins_match",
-        "inside_ins_match_quantile", "inside_ins_match_j_max_quantile", "inside_ins_match",
-        "outside_ins_rc_match_quantile", "outside_ins_rc_match_j_max_quantile", "outside_ins_rc_match",
-        "inside_ins_rc_match_quantile", "inside_ins_rc_match_j_max_quantile", "inside_ins_rc_match"
+        "breakend_ID", "outside_ins_match_quantile", "outside_ins_match_j_max_quantile",
+        "inside_ins_match_quantile", "inside_ins_match_j_max_quantile",
+        "outside_ins_rc_match_quantile", "outside_ins_rc_match_j_max_quantile",
+        "inside_ins_rc_match_quantile", "inside_ins_rc_match_j_max_quantile"
     )
     match.results <- match.results[, lapply(.SD, as.numeric), by = breakend_ID]
     insertion.sv.calls.aligned <- data.table(merge(insertion.sv.calls.subset, match.results, by = "breakend_ID"))
 
     insertion.sv.calls.aligned[, c(
-        "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
-        "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
-    ) := lapply(.SD, function(x) {
-        1 - x
-    }),
-    .SDcols = c(
-        "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
-        "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
-    )
-    ][, c(
         "outside_ins_match_quantile_fdr", "outside_ins_rc_match_quantile_fdr",
         "inside_ins_match_quantile_fdr", "inside_ins_rc_match_quantile_fdr"
     ) := lapply(.SD, function(x) p.adjust(x, method = "fdr")),

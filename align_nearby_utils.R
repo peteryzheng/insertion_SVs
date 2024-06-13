@@ -40,26 +40,30 @@ alignment_sig <- function(alignment_df, kmer) {
         data.table(melt(alignment_df, id.vars = "breakend_ID", variable.name = "j", value.name = "quantile"))[, k_mer := kmer][
             # setting j to the correct value (column 1 is supposed to be k by k, column 2 is supposed to be k by k+1. etc)
             , .(
-                  j = as.numeric(gsub("V", "", j)) + nchar(kmer) - 1, quantile, k_mer,
-                  # tagging max quantile value per breakend (breakend_ID), max quantile in k by j at the breakend
-                  max_quantile = ifelse(quantile == max(quantile), TRUE, FALSE)
+                    j = as.numeric(gsub("V", "", j)) + nchar(kmer) - 1, quantile, k_mer,
+                    # tagging max quantile value per breakend (breakend_ID), max quantile in k by j at the breakend
+                    max_quantile = ifelse(quantile == max(quantile), TRUE, FALSE)
             ),
             by = "breakend_ID"
         ][(max_quantile),
-              # getting minimum avg and max offset with the max quantile value
-              .(j_min = min(j), j_avg = mean(j), j_max = max(j)),
-              by = c("breakend_ID", "k_mer", "max_quantile", "quantile")
+                # getting minimum avg and max offset with the max quantile value
+                .(j_min = min(j), j_avg = mean(j), j_max = max(j)),
+                by = c("breakend_ID", "k_mer", "max_quantile", "quantile")
         ]
     # best quantile per SV
-    print(summary(best_alignment$quantile))
+    # print(summary(best_alignment$quantile))
     # adjusting max qunatile
-    best_alignment$adjusted_quantile <- rank(best_alignment$quantile) / length(best_alignment$quantile)
-    # adding significance info back into the total df
-    best_alignment$significance <- ifelse(best_alignment$adjusted_quantile > 0.95, TRUE, FALSE)
+    best_alignment$adjusted_quantile <- 1 - rank(best_alignment$quantile) / length(best_alignment$quantile)
     return(best_alignment)
 }
 
-align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_dir, gap_open, gap_epen, mismatch_pen, match_pen) {
+score_to_p_val = function(score_mat, breakend_IDs, kmer){
+    quantile_mat = data.table(apply(score_mat, 2, function(x) rank(x) / length(x)))[, breakend_ID := breakend_IDs]
+    significance_df = alignment_sig(quantile_mat, kmer)
+    significance_df[!grepl('background',breakend_ID)]
+}
+
+align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_dir, gap_open, gap_epen, mismatch_pen, match_pen, ncores) {
     bases <- as.numeric(bases)
     # match penalty is the original value, mismatch penalty is the negative of the input value
     mat <- nucleotideSubstitutionMatrix(match = match_pen, mismatch = mismatch_pen, type = "DNA")[c("A", "G", "C", "T", "N"), c("A", "G", "C", "T", "N")]
@@ -85,7 +89,7 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
             find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
             find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat)
         ))
-    }, mc.cores = 4, mc.preschedule = TRUE, mc.set.seed = 55555)
+    }, mc.cores = ncores, mc.preschedule = TRUE, mc.set.seed = 55555)
 
     # Insertion alignment score matrix ----------
     ins_alignment_scores_out_og <- do.call("rbind", lapply(ins_alignment_scores, function(x) x[[1]]))
@@ -104,36 +108,42 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
     # ins_alignment_scores_out_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_out_rc.tsv'),sep = '\t')
     # ins_alignment_scores_in_rc <- fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_score_in_rc.tsv'),sep = '\t')
 
-    ins_alignment_quantile_out_og <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_in_og <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_out_rc <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_in_rc <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x) / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+    real_sv_breakend_IDs = grep('background',insertion.sv.calls$breakend_ID, value = TRUE, invert = TRUE)
+    background_sv_breakend_IDs = grep('background',insertion.sv.calls$breakend_ID, value = TRUE)
 
-    ins_alignment_quantile_out_og_max <- data.table(apply(ins_alignment_scores_out_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_in_og_max <- data.table(apply(ins_alignment_scores_in_og, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_out_rc_max <- data.table(apply(ins_alignment_scores_out_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
-    ins_alignment_quantile_in_rc_max <- data.table(apply(ins_alignment_scores_in_rc, 2, function(x) rank(x, ties.method = "max") / length(x)))[, breakend_ID := insertion.sv.calls$breakend_ID]
+    background_mat_out_og = ins_alignment_scores_out_og[grepl('background',insertion.sv.calls$breakend_ID)]
+    out.ins.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
+        # for each real insertion SV, calculate the p value separately with the background breakends
+        score_to_p_val(
+            # row bind to create a [N_background + 1] x [bases out to align] matrix
+            rbind(background_mat_out_og, ins_alignment_scores_out_og[which(insertion.sv.calls$breakend_ID == x)]),
+            c(background_sv_breakend_IDs,x), ins_seq
+        )
+    }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
+    
+    background_mat_in_og = ins_alignment_scores_in_og[grepl('background',insertion.sv.calls$breakend_ID)]
+    in.ins.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
+        score_to_p_val(
+            rbind(background_mat_in_og, ins_alignment_scores_in_og[which(insertion.sv.calls$breakend_ID == x)]),
+            c(background_sv_breakend_IDs,x), ins_seq
+        )
+    }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
 
-    # write.table(ins_alignment_quantile_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_og.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_in_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_og.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_out_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_out_rc.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_in_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_in_rc.tsv"), sep = "\t", row.names = FALSE)
+    background_mat_out_rc = ins_alignment_scores_out_rc[grepl('background',insertion.sv.calls$breakend_ID)]
+    out.ins.rc.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
+        score_to_p_val(
+            rbind(background_mat_out_rc, ins_alignment_scores_out_rc[which(insertion.sv.calls$breakend_ID == x)]),
+            c(background_sv_breakend_IDs,x), ins_seq
+        )
+    }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
 
-    # write.table(ins_alignment_quantile_out_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_og.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_in_og_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_og.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_out_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_out_rc.tsv"), sep = "\t", row.names = FALSE)
-    # write.table(ins_alignment_quantile_in_rc_max, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_quantile_maxtie_in_rc.tsv"), sep = "\t", row.names = FALSE)
-
-    # row max quantile value calculation ----------
-    # ins_alignment_quantile_out_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_og.tsv'),sep = '\t')
-    # ins_alignment_quantile_in_og = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_og.tsv'),sep = '\t')
-    # ins_alignment_quantile_out_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_out_rc.tsv'),sep = '\t')
-    # ins_alignment_quantile_in_rc = fread(paste0(intermediate_ins_dir,'/',ins_seq,'_alignment_quantile_in_rc.tsv'),sep = '\t')
-
-    out.ins.match <- alignment_sig(ins_alignment_quantile_out_og, ins_seq)
-    in.ins.match <- alignment_sig(ins_alignment_quantile_in_og, ins_seq)
-    out.ins.rc.match <- alignment_sig(ins_alignment_quantile_out_rc, ins_seq)
-    in.ins.rc.match <- alignment_sig(ins_alignment_quantile_in_rc, ins_seq)
+    background_mat_in_rc = ins_alignment_scores_in_rc[grepl('background',insertion.sv.calls$breakend_ID)]
+    in.ins.rc.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
+        score_to_p_val(
+            rbind(background_mat_in_rc, ins_alignment_scores_in_rc[which(insertion.sv.calls$breakend_ID == x)]),
+            c(background_sv_breakend_IDs,x), ins_seq
+        )
+    }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
 
     write.table(out.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
     write.table(in.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
@@ -218,6 +228,8 @@ if (!interactive()) {
     }
 
     set.seed(seed)
+    
+    # downsample the breakends
     if(nrow(insertion.sv.calls) > downsample_num){
         background_indices = sample(1:nrow(insertion.sv.calls), downsample_num)
         insertion.sv.calls <- insertion.sv.calls[
@@ -228,12 +240,20 @@ if (!interactive()) {
                 which(insertion.sv.calls$ins_seq == ins)
             ), 
         ][
-          ,breakend_ID := paste0(
+            ,breakend_ID := paste0(
                 breakend_ID, c(
-                  # give a tag to the background breakend IDs
-                  paste0('_background_',c(1:downsample_num)),
-                  # the real insertion SV breakend IDs keep the same
-                  rep('', sum(insertion.sv.calls$ins_seq == ins))
+                    # give a tag to the background breakend IDs
+                    paste0('_background_',c(1:downsample_num)),
+                    # the real insertion SV breakend IDs keep the same
+                    rep('', sum(insertion.sv.calls$ins_seq == ins))
+                )
+            )
+        ]
+    }else{
+        insertion.sv.calls <- insertion.sv.calls[
+            ,breakend_ID := paste0(
+                breakend_ID, ifelse(
+                    ins_seq == ins, '', '_background'
                 )
             )
         ]
@@ -262,18 +282,19 @@ if (!interactive()) {
     ))
     if(nrow(insertion.sv.calls) > downsample_num){
         print(paste0(
-          "Downsampling to ", downsample_num, " breakends with the following indicies: "
+            "Downsampling to ", downsample_num, " breakends with the following indicies: "
         ))
         print(paste0(background_indices, collapse = ", "))
     }else{
         print(paste0(
-          "Using all ", nrow(insertion.sv.calls), " breakends"
+            "Using all ", nrow(insertion.sv.calls), " breakends"
         ))
     }
     system.time(unlist(align_nearby_mc_bp(
         ins, total_bases, insertion.sv.calls, intermediate_dir,
         # aligmnent parameters from make_option inputs
-        gap_open = gapopen, gap_epen = gapepen, mismatch_pen = mismatchpen, match_pen = matchpen
+        gap_open = gapopen, gap_epen = gapepen, mismatch_pen = mismatchpen, match_pen = matchpen,
+        ncores = detectCores()
     )))
     print('Done!')
 }
