@@ -1,5 +1,7 @@
 # Identifying Statistically Significant Templates for SV Junctional Insertions
 
+[![CI Docker](https://github.com/peteryzheng/insertion_SVs/actions/workflows/main.yml/badge.svg)](https://github.com/peteryzheng/insertion_SVs/actions/workflows/main.yml)
+
 ## Introduction
 
 Briefly, the insertion template significance is measured as follows:

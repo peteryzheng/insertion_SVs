@@ -4,11 +4,11 @@ suppressWarnings(library(optparse))
 
 # local vs UGER ------------------------------------------------------------------------------------------
 if (Sys.getenv("HOME") %in% c("/Users/youyun", "/Users/youyunzheng")) {
-  # in a local mac, the home directory is usuaully at '/Users/[username]'
-  workdir <- "~/Documents/HMS/PhD/beroukhimlab/broad_mount/"
+    # in a local mac, the home directory is usuaully at '/Users/[username]'
+    workdir <- "~/Documents/HMS/PhD/beroukhimlab/broad_mount/"
 } else {
-  # in dipg or uger, the home directory is usuaully at '/home/unix/[username]'
-  workdir <- "/xchip/beroukhimlab/"
+    # in dipg or uger, the home directory is usuaully at '/home/unix/[username]'
+    workdir <- "/xchip/beroukhimlab/"
 }
 
 # intermediate_dir <- paste0(workdir, "/youyun/nti/analysis_files/insertions")
@@ -76,30 +76,36 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
         current_breakend_ID <- x[which(colnames(insertion.sv.calls) == "breakend_ID")]
         intermediate_ins_dir <- paste0(intermediate_job_output_dir, "/alignment_files/", ins_seq)
 
-        out_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"))
-        in_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"))
-        out_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"))
-        in_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"))
+        if(length(list.files(
+            intermediate_ins_dir, pattern = "sig_breakends.tsv"
+        )) == 4){
+            out_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"))
+            in_og_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"))
+            out_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"))
+            in_rc_breakend_results <- fread(paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"))
 
-        # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
-        out.ins.match <- c(
-            out_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
-        )
-        in.ins.match <- c(
-            in_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            in_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
-        )
-        out.ins.rc.match <- c(
-            out_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            out_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
-        )
-        in.ins.rc.match <- c(
-            in_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
-            in_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
-        )
+            # Checking if out breakend_ID is in the significant match breakend list in the output in the 4 possible configurations
+            out.ins.match <- c(
+                out_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+                out_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
+            )
+            in.ins.match <- c(
+                in_og_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+                in_og_breakend_results[breakend_ID == current_breakend_ID]$j_min
+            )
+            out.ins.rc.match <- c(
+                out_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+                out_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
+            )
+            in.ins.rc.match <- c(
+                in_rc_breakend_results[breakend_ID == current_breakend_ID]$adjusted_quantile,
+                in_rc_breakend_results[breakend_ID == current_breakend_ID]$j_min
+            )
 
-        return(c(current_breakend_ID, out.ins.match, in.ins.match, out.ins.rc.match, in.ins.rc.match))
+            return(c(current_breakend_ID, out.ins.match, in.ins.match, out.ins.rc.match, in.ins.rc.match))
+        }else{
+            return(c(current_breakend_ID, rep(NA, 8)))
+        }
     })))
 
     # merge the result back into the original sv file -----------------------------------------------------------------------
@@ -112,24 +118,40 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
     match.results <- match.results[, lapply(.SD, as.numeric), by = breakend_ID]
     insertion.sv.calls.aligned <- data.table(merge(insertion.sv.calls.subset, match.results, by = "breakend_ID"))
 
-    insertion.sv.calls.aligned[, c(
-        "outside_ins_match_quantile_fdr", "outside_ins_rc_match_quantile_fdr",
-        "inside_ins_match_quantile_fdr", "inside_ins_rc_match_quantile_fdr"
-    ) := lapply(.SD, function(x) p.adjust(x, method = "fdr")),
-    .SDcols = c(
-        "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
-        "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
-    )
+    # Checking how many insertion SVs have finished the alignment process ---------------------------------------------------
+    print(paste0(
+        'Number of insertion SVs with alignment results: ',
+        nrow(insertion.sv.calls.aligned[!is.na(outside_ins_match_quantile)])
+    ))
+    print(paste0(
+        'Percentage of insertion SVs with alignment results: ',
+        round(
+            nrow(insertion.sv.calls.aligned[!is.na(outside_ins_match_quantile)]) /
+                nrow(insertion.sv.calls.subset) * 100, 2 
+        ),'%'
+    ))
+    insertion.sv.calls.aligned = insertion.sv.calls.aligned[!is.na(outside_ins_match_quantile)]
+
+    # FDR correction for the quantile values -----------------------------------------------------------------------------------
+    insertion.sv.calls.aligned[
+        ,c(
+            "outside_ins_match_quantile_fdr", "outside_ins_rc_match_quantile_fdr",
+            "inside_ins_match_quantile_fdr", "inside_ins_rc_match_quantile_fdr"
+        ) := lapply(.SD, function(x) p.adjust(x, method = "fdr")),
+        .SDcols = c(
+            "outside_ins_match_quantile", "outside_ins_rc_match_quantile",
+            "inside_ins_match_quantile", "inside_ins_rc_match_quantile"
+        )
     ]
 
     insertion.sv.calls.aligned[
         , c("outside_ins_match", "outside_ins_rc_match", "inside_ins_match", "inside_ins_rc_match") :=
-          list(
-              ifelse(outside_ins_match_quantile_fdr < sig_threshold, 1, 0),
-              ifelse(outside_ins_rc_match_quantile_fdr < sig_threshold, 1, 0),
-              ifelse(inside_ins_match_quantile_fdr < sig_threshold, 1, 0),
-              ifelse(inside_ins_rc_match_quantile_fdr < sig_threshold, 1, 0)
-          )
+            list(
+                ifelse(outside_ins_match_quantile_fdr < sig_threshold, 1, 0),
+                ifelse(outside_ins_rc_match_quantile_fdr < sig_threshold, 1, 0),
+                ifelse(inside_ins_match_quantile_fdr < sig_threshold, 1, 0),
+                ifelse(inside_ins_rc_match_quantile_fdr < sig_threshold, 1, 0)
+            )
     ]
 
     if (any(grepl(insertion.sv.calls.aligned$seqnames, pattern = "chr"))) {
@@ -151,6 +173,7 @@ call_single_end_configuration = function(intermediate_dir, SV_file, dataset, cur
     pdf(paste0(intermediate_job_output_dir, dataset, "_alignment_upset_plot_", current_time, ".pdf"),
         width = 8, height = 8, onefile = FALSE
     )
+
     upset(insertion.sv.calls.aligned[, .(outside_ins_match, outside_ins_rc_match, inside_ins_match, inside_ins_rc_match)],
         sets.bar.color = "#56B4E9", empty.intersections = TRUE
     )
@@ -163,7 +186,6 @@ call_combination_configuration = function(intermediate_dir, insertion.sv.calls.a
     intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
     intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
     # generating the dcast data for combination information -----------------------------------------------------------------------
-    # insertion.sv.calls.aligned = fread(paste0(workdir, "youyun/nti/analysis_files/HCMI_insertions_w_sig_alignment_09281828.tsv"))
     # dup and del has breakend 1 vs breakend 2
     # translocations and inversions have breakend 0 and breakend 1
     insertion.sv.calls.aligned[, c("SV_ID", "breakend_num") :=
@@ -171,11 +193,23 @@ call_combination_configuration = function(intermediate_dir, insertion.sv.calls.a
             paste0(Sample, "__", gsub(":[0-2]$", "", ID)),
             gsub(".*:", "", ID)
         )]
+    # check how many SVs we can call the combination on 
+    # i.e. if a SV is a inv, the ins_seq for breakend 1 and 2 would be different and only one of them may have finished
+    print(paste0(
+        'Out of the total number of insertion SVs with any alignment results (',
+        nrow(insertion.sv.calls.aligned[,.N, SV_ID]),'): ', nrow(insertion.sv.calls.aligned[,.N, SV_ID][N != 2]),
+        ' SVs have only one breakend with alignment results'
+    ))
+    # we only want to keep the SVs with both breakends aligned
+    insertion.sv.calls.aligned <- insertion.sv.calls.aligned[
+        SV_ID %in% insertion.sv.calls.aligned[,.N, SV_ID][N == 2]$SV_ID
+    ]
+
     # per sv pair, we sort the breakend numbers, sort them, and give them a unified order
     insertion.sv.calls.aligned[order(breakend_num), breakend_order := c("breakend1", "breakend2"), SV_ID]
     # dcast into the short format with breakend 1 and 2 identified by SV_ID
     insertion_sv_calls_aligned_paired <- dcast(
-      # melt into long format
+        # melt into long format
         melt(
             insertion.sv.calls.aligned,
             id.vars = c(
@@ -239,9 +273,9 @@ call_combination_configuration = function(intermediate_dir, insertion.sv.calls.a
     table(insertion_sv_calls_aligned_paired$breakend2_match)
     high_conf_insertion_sv_calls_aligned_paired <- insertion_sv_calls_aligned_paired[
         (outside_outside == 1 | outside_outside_rc == 1 | outside_inside == 1 | outside_inside_rc == 1 |
-          outside_rc_outside_rc == 1 | outside_rc_inside == 1 | outside_rc_inside_rc == 1 |
-          inside_inside == 1 | inside_inside_rc == 1 | inside_rc_inside_rc == 1) &
-          (breakend1_match == 1 & breakend2_match == 1),
+            outside_rc_outside_rc == 1 | outside_rc_inside == 1 | outside_rc_inside_rc == 1 |
+            inside_inside == 1 | inside_inside_rc == 1 | inside_rc_inside_rc == 1) &
+            (breakend1_match == 1 & breakend2_match == 1),
     ]
     print(high_conf_insertion_sv_calls_aligned_paired[
         , .(
@@ -279,7 +313,7 @@ if(!interactive()) {
     }
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
-    source('align_and_config_call_helper.R')
+    source('helper_align_and_config.R')
     current_time <- format(Sys.time(), "%m%d%H%M")
 
 
@@ -288,11 +322,11 @@ if(!interactive()) {
 
     print("Calling single end configuration")
     single_end_significance = call_single_end_configuration(
-      outputdir, SV_file, dataset, current_time
+        outputdir, SV_file, dataset, current_time
     )
 
     print("Calling double end configuration")
     double_end_significance = call_combination_configuration(
-      outputdir, single_end_significance, dataset, current_time
+        outputdir, single_end_significance, dataset, current_time
     )
 }

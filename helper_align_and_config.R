@@ -27,7 +27,8 @@ write_kmer_file = function(intermediate_dir, SV_file){
 
     # write the kmers to a file -----------------------------------------------------------------------------------------------------------
     kmer_file = paste0(intermediate_job_input_dir, "kmers_", current_time, ".txt")
-    write.table(unique(insertion.sv.calls.subset$ins_seq), kmer_file, sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+    # adding in sample to prevent the more prevalent kmers from being run first all the time
+    write.table(sample(unique(insertion.sv.calls.subset$ins_seq)), kmer_file, sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
     print(paste0("The kmers are here: ", kmer_file))
     return(kmer_file)
 }
@@ -114,7 +115,10 @@ check_task_array_output = function(intermediate_dir, task_array_number, kmer_tas
 
 # =================================== batch align shared functions ===================================
 
-generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file, script_name, downsample_num, seed, time){
+generate_qsub_script = function(
+    intermediate_dir, alignparam, kmer_file, SV_file, script_name, 
+    downsample_num, seed, time, cores
+){
     current_time <- gsub('.*_|/$','',intermediate_dir)
     intermediate_job_input_dir <- paste0(intermediate_dir, "/inputs/")
     intermediate_job_output_dir <- paste0(intermediate_dir, "/outputs/")
@@ -138,8 +142,8 @@ generate_qsub_script = function(intermediate_dir, alignparam, kmer_file, SV_file
         "#!/bin/bash",
         paste0("#$ -l h_rt=",time,":00:00"),
         paste0("#$ -t 1-", nrow(fread(kmer_file, header = FALSE))),
-        "#$ -pe smp 4 ",
-        "#$ -binding linear:4 ",
+        paste0("#$ -pe smp ",cores," "),
+        paste0("#$ -binding linear:",cores," "),
         "#$ -l h_vmem=4G",
         paste0("#$ -o '", intermediate_job_output_dir, "/task_array_output/' "),
         paste0("#$ -e '", intermediate_job_output_dir, "/task_array_output/' "),

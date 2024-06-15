@@ -31,6 +31,10 @@ if(!interactive()) {
         make_option(c('-t','--time'),
             type = 'numeric', default = 36,
             help = 'Time (hours) to run each task', metavar = 'time'
+        ),
+        make_option(c("-c", "--cores"),
+            type = "numeric", default = 4,
+            help = "Number of cores to use", metavar = "cores"
         )
 
     )
@@ -43,6 +47,7 @@ if(!interactive()) {
     downsample_num = opt$downsamplenum
     seed = opt$seed
     time = opt$time
+    cores = opt$cores
 
     setwd(paste0(workdir, "youyun/nti/code/insertion_SVs"))
     source('helper_align_and_config.R')
@@ -60,7 +65,7 @@ if(!interactive()) {
     kmer_file = write_kmer_file(outputdir, SV_file)
     generate_qsub_script(
         outputdir, alignparam, kmer_file, SV_file, 
-        'task_array', downsample_num, seed, time
+        'task_array', downsample_num, seed, time, cores
     )
     generate_terra_file(
         outputdir, alignparam, kmer_file, 
