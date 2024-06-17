@@ -92,11 +92,12 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
     }, mc.cores = ncores, mc.preschedule = TRUE, mc.set.seed = 55555)
 
     # Insertion alignment score matrix ----------
-    ins_alignment_scores_out_og <- do.call("rbind", lapply(ins_alignment_scores, function(x) x[[1]]))
-    ins_alignment_scores_in_og <- do.call("rbind", lapply(ins_alignment_scores, function(x) x[[2]]))
-    ins_alignment_scores_out_rc <- do.call("rbind", lapply(ins_alignment_scores, function(x) x[[3]]))
-    ins_alignment_scores_in_rc <- do.call("rbind", lapply(ins_alignment_scores, function(x) x[[4]]))
+    ins_alignment_scores_out_og <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[1]])))
+    ins_alignment_scores_in_og <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[2]])))
+    ins_alignment_scores_out_rc <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[3]])))
+    ins_alignment_scores_in_rc <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[4]])))
 
+    print(paste0("Writing alignment scores to ", intermediate_ins_dir))
     write.table(ins_alignment_scores_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_score_out_og.tsv"), sep = "\t", row.names = FALSE)
     write.table(ins_alignment_scores_in_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_score_in_og.tsv"), sep = "\t", row.names = FALSE)
     write.table(ins_alignment_scores_out_rc, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_score_out_rc.tsv"), sep = "\t", row.names = FALSE)
@@ -110,8 +111,16 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
 
     real_sv_breakend_IDs = grep('background',insertion.sv.calls$breakend_ID, value = TRUE, invert = TRUE)
     background_sv_breakend_IDs = grep('background',insertion.sv.calls$breakend_ID, value = TRUE)
+    cat(paste0(
+        'Out of ',nrow(insertion.sv.calls),' breakends, \n',
+        '\t ',length(real_sv_breakend_IDs),' are real insertion SVs, \n',
+        '\t ',length(background_sv_breakend_IDs),' are background breakends'
+    ))
 
-    background_mat_out_og = ins_alignment_scores_out_og[grepl('background',insertion.sv.calls$breakend_ID)]
+    print("Calculating significance values for outside og")
+    background_mat_out_og = ins_alignment_scores_out_og[grepl('background',insertion.sv.calls$breakend_ID),]
+    print(dim(ins_alignment_scores_out_og))
+    print(dim(background_mat_out_og))
     out.ins.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
         # for each real insertion SV, calculate the p value separately with the background breakends
         score_to_p_val(
@@ -120,35 +129,44 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
             c(background_sv_breakend_IDs,x), ins_seq
         )
     }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
+    write.table(out.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
     
-    background_mat_in_og = ins_alignment_scores_in_og[grepl('background',insertion.sv.calls$breakend_ID)]
+    print("Calculating significance values for inside og")
+    background_mat_in_og = ins_alignment_scores_in_og[grepl('background',insertion.sv.calls$breakend_ID),]
+    print(dim(ins_alignment_scores_in_og))
+    print(dim(background_mat_in_og))
     in.ins.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
         score_to_p_val(
             rbind(background_mat_in_og, ins_alignment_scores_in_og[which(insertion.sv.calls$breakend_ID == x)]),
             c(background_sv_breakend_IDs,x), ins_seq
         )
     }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
+    write.table(in.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
 
-    background_mat_out_rc = ins_alignment_scores_out_rc[grepl('background',insertion.sv.calls$breakend_ID)]
+    print("Calculating significance values for outside rc")
+    background_mat_out_rc = ins_alignment_scores_out_rc[grepl('background',insertion.sv.calls$breakend_ID),]
+    print(dim(ins_alignment_scores_out_rc))
+    print(dim(background_mat_out_rc))
     out.ins.rc.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
         score_to_p_val(
             rbind(background_mat_out_rc, ins_alignment_scores_out_rc[which(insertion.sv.calls$breakend_ID == x)]),
             c(background_sv_breakend_IDs,x), ins_seq
         )
     }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
+    write.table(out.ins.rc.match, paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
 
-    background_mat_in_rc = ins_alignment_scores_in_rc[grepl('background',insertion.sv.calls$breakend_ID)]
+    print("Calculating significance values for inside rc")
+    background_mat_in_rc = ins_alignment_scores_in_rc[grepl('background',insertion.sv.calls$breakend_ID),]
+    print(dim(ins_alignment_scores_in_rc))
+    print(dim(background_mat_in_rc))
     in.ins.rc.match = do.call('rbind',mclapply(real_sv_breakend_IDs,function(x){
         score_to_p_val(
             rbind(background_mat_in_rc, ins_alignment_scores_in_rc[which(insertion.sv.calls$breakend_ID == x)]),
             c(background_sv_breakend_IDs,x), ins_seq
         )
     }, mc.cores = ncores, mc.preschedule = FALSE, mc.set.seed = 55555))
-
-    write.table(out.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_out_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
-    write.table(in.ins.match, paste0(intermediate_ins_dir, "/", ins_seq, "_in_og_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
-    write.table(out.ins.rc.match, paste0(intermediate_ins_dir, "/", ins_seq, "_out_rc_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
     write.table(in.ins.rc.match, paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
+
 }
 
 
@@ -231,6 +249,9 @@ if (!interactive()) {
     
     # downsample the breakends
     if(nrow(insertion.sv.calls) > downsample_num){
+        print(paste0(
+            "Downsampling to ", downsample_num, " breakends"
+        ))
         background_indices = sample(1:nrow(insertion.sv.calls), downsample_num)
         insertion.sv.calls <- insertion.sv.calls[
             c(
@@ -250,6 +271,9 @@ if (!interactive()) {
             )
         ]
     }else{
+        print(paste0(
+            "Using all ", nrow(insertion.sv.calls), " breakends"
+        ))
         insertion.sv.calls <- insertion.sv.calls[
             ,breakend_ID := paste0(
                 breakend_ID, ifelse(
@@ -258,6 +282,7 @@ if (!interactive()) {
             )
         ]
     }
+    print(nrow(insertion.sv.calls))
 
     # error checking for inputs
     if (!is.numeric(window) || is.null(ins) || nrow(insertion.sv.calls) == 0 || intermediate_dir == "") {
@@ -280,16 +305,7 @@ if (!interactive()) {
         "Alignment parameters: gap_open = ", gapopen, ", gap_epen = ", gapepen, 
         ", mismatch_pen = ", mismatchpen, ", match_pen = ", matchpen
     ))
-    if(nrow(insertion.sv.calls) > downsample_num){
-        print(paste0(
-            "Downsampling to ", downsample_num, " breakends with the following indicies: "
-        ))
-        print(paste0(background_indices, collapse = ", "))
-    }else{
-        print(paste0(
-            "Using all ", nrow(insertion.sv.calls), " breakends"
-        ))
-    }
+
     system.time(unlist(align_nearby_mc_bp(
         ins, total_bases, insertion.sv.calls, intermediate_dir,
         # aligmnent parameters from make_option inputs
