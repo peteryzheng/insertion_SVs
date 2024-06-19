@@ -68,7 +68,8 @@ task run_align_nearby_util {
             -w ~{width} -d ~{input_file} \
             -g ~{gap_open} -e ~{gap_epen} \
             -m ~{mismatch_pen} -t ~{match_pen} \
-            -n ~{downsample_num} -s ~{seed}
+            -n ~{downsample_num} -s ~{seed} \
+            -c ~{threads}
 
         tar cvzf ~{kmer}.tar.gz ./~{kmer}
     >>>

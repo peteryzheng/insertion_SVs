@@ -29,7 +29,7 @@ if(!interactive()) {
             type = "numeric", default = 55555,
             help = "seed for random number generator", metavar = "seed"
         ),
-        make_option(c("-t", "--task_number"),
+        make_option(c("-q", "--task_number"),
             type = "integer",
             help = "Task array number to check.", metavar = "task_number"
         ),

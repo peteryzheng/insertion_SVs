@@ -158,11 +158,12 @@ generate_qsub_script = function(
         paste0("kmer=$(sed -n -e \"$SGE_TASK_ID p\"  ", kmer_file, ")"),
         "echo $kmer",
         paste0(
-            "/xchip/beroukhimlab/youyun/miniconda3/bin/conda run -n rameen Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
+            "/xchip/beroukhimlab/youyun/miniconda3/bin/conda run -n rameen --live-stream",
+            " Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/align_nearby_utils.R  -i $kmer ",
             # parameters for how far out the breakpoint to align to
             " -w 20 -d ", SV_file, " -o ", intermediate_job_output_dir,'/alignment_files/', " ",
             # " -b 100 -d /xchip/beroukhimlab/youyun/nti/analysis_files/", SV_file, " -o ", intermediate_dir, " "
-            align_str,' -n ', downsample_num, ' -s ', seed
+            align_str,' -n ', downsample_num, ' -s ', seed,' -c ',cores
         )
     )
     task_array_path <- paste0(intermediate_job_input_dir, script_name, "_", current_time, ".sh")

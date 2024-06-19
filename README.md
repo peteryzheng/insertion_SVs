@@ -2,6 +2,13 @@
 
 [![CI Docker](https://github.com/peteryzheng/insertion_SVs/actions/workflows/main.yml/badge.svg)](https://github.com/peteryzheng/insertion_SVs/actions/workflows/main.yml)
 
+table of contents
+1. [Introduction](#introduction)
+2. [Usage](#usage)
+    1. [Data Preprocessing](#data-preprocessing)
+    2. [Template Significance Calculation](#template-significance-calculation)
+    3. [Configuration Calling](#configuration-calling)
+
 ## Introduction
 
 Briefly, the insertion template significance is measured as follows:
@@ -93,7 +100,7 @@ By default, this generates a folder in the `outputdir` called **ins_align_total_
 
 #### Scripts and Commands
 
-The template significance calculation step is done using the `batch_align_kmers.R` script. This script writes a qsub script into the output directory which the user can use on UGER to submit a task array for each insertion sequence. The script takes in the following arguments:
+The template significance calculation step is done using the `batch_align_kmers.R` script. This script writes a qsub script into the output directory which the user can use on UGER to submit a task array for each insertion sequence. Additionally, a table is generated that can be used to run the alignment step on terra. The script takes in the following arguments:
 
 ```
 Options:
@@ -101,6 +108,14 @@ Options:
 		Alignment Parameters to Use. Current option: [mhe, default_bwa]
 	-o OUTPUTDIR, --outputdir=OUTPUTDIR
 		Output directory to use.
+	-n DOWNSAMPLE_NUM, --downsamplenum=DOWNSAMPLE_NUM
+		number of breakends to downsample to
+	-s SEED, --seed=SEED
+		seed for random number generator
+	-t TIME, --time=TIME
+		Time (hours) to run each task
+	-c CORES, --cores=CORES
+		Number of cores to use
 ```
 
 To generate the qsub script, you can run the following command and follow the instructions:
@@ -109,6 +124,7 @@ To generate the qsub script, you can run the following command and follow the in
 conda run -n rameen \
     Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/batch_align_kmers.R \
     -a mhe -o /xchip/beroukhimlab/youyun/nti/output/ins_align_total_[timestamp]
+    -n 4000 -s 55555 -t 4 -c 8
 ```
 
 Not all the tasks will finish the first time around, so there is another script designed to resubmit the failed tasks. This script is called `batch_align_kmers_rerun.r`. This script takes in the following arguments:
@@ -119,10 +135,18 @@ Options:
 		Alignment Parameters to Use. Current option: [mhe, default_bwa]
 	-o OUTPUTDIR, --outputdir=OUTPUTDIR
 		Output directory to use.
-	-t TASK_NUMBER, --task_number=TASK_NUMBER
+	-n DOWNSAMPLE_NUM, --downsamplenum=DOWNSAMPLE_NUM
+		number of breakends to downsample to
+	-s SEED, --seed=SEED
+		seed for random number generator
+	-q TASK_NUMBER, --task_number=TASK_NUMBER
 		Task array number to check.
 	-k KMER_FILE, --kmer_file=KMER_FILE
 		Latest kmer file to check.
+	-t TIME, --time=TIME
+		Time (hours) to run each task
+	-c CORES, --cores=CORES
+		Number of cores to use
 ```
 
 To rerun the failed tasks, you can run the following command and follow the instructions:
@@ -131,7 +155,8 @@ To rerun the failed tasks, you can run the following command and follow the inst
 conda run -n rameen \
     Rscript /xchip/beroukhimlab/youyun/nti/code/insertion_SVs/batch_align_kmers_rerun.R \
     -a mhe -o /xchip/beroukhimlab/youyun/nti/output/ins_align_total_[timestamp] \
-    -t [job ID] -k /xchip/beroukhimlab/youyun/nti/output/ins_align_total_[timestamp]/inputs/[kmer_file]
+    -t [job ID] -k /xchip/beroukhimlab/youyun/nti/output/ins_align_total_[timestamp]/inputs/[kmer_file] \
+    -n 4000 -s 55555 -t 4 -c 8
 ```
 
 Both of the above scripts will use helper functions in `align_and_config_call_helper.R` to generate the task array shell scripts. The task array shell scripts will use `align_nearby_utils.R` to align the insertion sequences to the breakpoint adjacent sequences.
@@ -146,6 +171,7 @@ This scripts create subfolder structure within the **ins_align_[timestamp]**. Th
     -- kmer file — input for the initial run of task array
     -- failed kmer file - input for reruns of the failed tasks
     -- task array shell scripts — shell scripts for the task arrays
+    -- terra table — table to run the alignment step on terra
 --| outputs
     --| alignment_files — alignment score outpus
     --| task_array_output — task array outputs
@@ -218,6 +244,7 @@ Thus the final output structure of the workflow will be as follows (--| denotes 
     -- kmer file — input for the initial run of task array
     -- failed kmer file - input for reruns of the failed tasks
     -- task array shell scripts — shell scripts for the task arrays
+    -- terra table — table to run the alignment step on terra
 -- total_SVs_processed_[timestamp].tsv
 -- insertions_SVs_processed_[timestamp].tsv
 -- various visualization plots

@@ -72,30 +72,49 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
     intermediate_ins_dir <- paste0(intermediate_dir, "/", ins_seq)
     dir.create(intermediate_ins_dir, showWarnings = TRUE)
     print(paste0("Creating ins directory for ", ins_seq, ": ", intermediate_ins_dir))
-    ins_alignment_scores <- mclapply(X = c(1:nrow(insertion.sv.calls)), FUN = function(x) {
-        each_call <- as.character(unlist(insertion.sv.calls[x, ]))
-        chr <- paste0("chr", each_call[which(colnames(insertion.sv.calls) == "seqnames")])
-        start <- as.numeric(each_call[which(colnames(insertion.sv.calls) == "start")])
-        cnt <- each_call[which(colnames(insertion.sv.calls) == "cnt_type")]
-        out_refseq <- each_call[which(colnames(insertion.sv.calls) == "outside_ref")]
-        in_refseq <- each_call[which(colnames(insertion.sv.calls) == "inside_ref")]
-        # return(list(find_best_alignment(DNAString(ins_seq),window,chr,start,cnt,'outside',gap_open,gap_epen,mat),
-        #             find_best_alignment(DNAString(ins_seq),window,chr,start,cnt,'inside',gap_open,gap_epen,mat),
-        #             find_best_alignment(reverseComplement(DNAString(ins_seq)),window,chr,start,cnt,'outside',gap_open,gap_epen,mat),
-        #             find_best_alignment(reverseComplement(DNAString(ins_seq)),window,chr,start,cnt,'inside',gap_open,gap_epen,mat)))
-        return(list(
-            find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
-            find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat),
-            find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
-            find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat)
-        ))
-    }, mc.cores = ncores, mc.preschedule = TRUE, mc.set.seed = 55555)
+
+    # old implementation of alignment scoring -- requires high vmem bc insertion.sv.calls is called in each thread?
+    # ins_alignment_scores <- mclapply(X = c(1:nrow(insertion.sv.calls)), FUN = function(x) {
+    #     each_call <- as.character(unlist(insertion.sv.calls[x, ]))
+    #     chr <- paste0("chr", each_call[which(colnames(insertion.sv.calls) == "seqnames")])
+    #     start <- as.numeric(each_call[which(colnames(insertion.sv.calls) == "start")])
+    #     cnt <- each_call[which(colnames(insertion.sv.calls) == "cnt_type")]
+    #     out_refseq <- each_call[which(colnames(insertion.sv.calls) == "outside_ref")]
+    #     in_refseq <- each_call[which(colnames(insertion.sv.calls) == "inside_ref")]
+    #     # return(list(find_best_alignment(DNAString(ins_seq),window,chr,start,cnt,'outside',gap_open,gap_epen,mat),
+    #     #             find_best_alignment(DNAString(ins_seq),window,chr,start,cnt,'inside',gap_open,gap_epen,mat),
+    #     #             find_best_alignment(reverseComplement(DNAString(ins_seq)),window,chr,start,cnt,'outside',gap_open,gap_epen,mat),
+    #     #             find_best_alignment(reverseComplement(DNAString(ins_seq)),window,chr,start,cnt,'inside',gap_open,gap_epen,mat)))
+    #     return(list(
+    #         find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
+    #         find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat),
+    #         find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
+    #         find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat)
+    #     ))
+    # }, mc.cores = ncores, mc.preschedule = TRUE, mc.set.seed = 55555)
+
+    # new implementation of alignment scoring -- hopefully requires less vmem
+    ins_alignment_scores = mcmapply(
+        function(chr,start,cnt,out_refseq,in_refseq){
+            return(list(
+                find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
+                find_best_alignment_substring(DNAString(ins_seq), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat),
+                find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "outside", out_refseq, gap_open, gap_epen, mat),
+                find_best_alignment_substring(reverseComplement(DNAString(ins_seq)), bases, chr, cnt, "inside", in_refseq, gap_open, gap_epen, mat)
+            ))
+        }, 
+        insertion.sv.calls$seqnames, insertion.sv.calls$start, insertion.sv.calls$cnt_type, 
+        insertion.sv.calls$outside_ref, insertion.sv.calls$inside_ref,
+        mc.cores = ncores, mc.preschedule = TRUE, mc.set.seed = 55555,
+        USE.NAMES = FALSE
+    )
+    print(dim(ins_alignment_scores))
 
     # Insertion alignment score matrix ----------
-    ins_alignment_scores_out_og <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[1]])))
-    ins_alignment_scores_in_og <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[2]])))
-    ins_alignment_scores_out_rc <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[3]])))
-    ins_alignment_scores_in_rc <- data.table(do.call("rbind", lapply(ins_alignment_scores, function(x) x[[4]])))
+    ins_alignment_scores_out_og <- data.table(do.call("rbind", ins_alignment_scores[1,]))
+    ins_alignment_scores_in_og <- data.table(do.call("rbind", ins_alignment_scores[2,]))
+    ins_alignment_scores_out_rc <- data.table(do.call("rbind", ins_alignment_scores[3,]))
+    ins_alignment_scores_in_rc <- data.table(do.call("rbind", ins_alignment_scores[4,]))
 
     print(paste0("Writing alignment scores to ", intermediate_ins_dir))
     write.table(ins_alignment_scores_out_og, paste0(intermediate_ins_dir, "/", ins_seq, "_alignment_score_out_og.tsv"), sep = "\t", row.names = FALSE)
@@ -168,8 +187,6 @@ align_nearby_mc_bp <- function(ins_seq, bases, insertion.sv.calls, intermediate_
     write.table(in.ins.rc.match, paste0(intermediate_ins_dir, "/", ins_seq, "_in_rc_sig_breakends.tsv"), sep = "\t", row.names = FALSE)
 
 }
-
-
 if (!interactive()) {
     option_list <- list(
         make_option(c("-i", "--ins"),
@@ -222,6 +239,10 @@ if (!interactive()) {
         make_option(c("-s", "--seed"),
             type = "numeric", default = 55555,
             help = "seed for random number generator", metavar = "seed"
+        ),
+        make_option(c("-c", "--cores"),
+            type = "numeric", default = 4,
+            help = "Number of cores to use", metavar = "cores"
         )
     )
 
@@ -240,6 +261,7 @@ if (!interactive()) {
     matchpen <- as.numeric(opt$matchpen)
     downsample_num <- as.numeric(opt$downsamplenum)
     seed <- as.numeric(opt$seed)
+    ncores <- as.numeric(opt$cores)
 
     if(intermediate_dir == '.'){
         intermediate_dir = getwd()
@@ -310,7 +332,7 @@ if (!interactive()) {
         ins, total_bases, insertion.sv.calls, intermediate_dir,
         # aligmnent parameters from make_option inputs
         gap_open = gapopen, gap_epen = gapepen, mismatch_pen = mismatchpen, match_pen = matchpen,
-        ncores = detectCores()
+        ncores = ncores
     )))
     print('Done!')
 }
